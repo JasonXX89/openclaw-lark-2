@@ -62,6 +62,7 @@ const TEST_ACCOUNT_ID = 'test-account';
 const TEST_CHAT_ID = 'oc_test123';
 const TEST_SENDER = 'ou_sender1';
 const TEST_MSG_ID = 'msg_test1';
+const PENDING_QUESTION_TTL_MS = 5 * 60 * 1000;
 
 function createMockCfg() {
   return {} as any;
@@ -203,6 +204,31 @@ describe('AskUserQuestion card callback', () => {
       const event = { action: { tag: 'some_other_action', name: 'other' } };
       const result = handleAskUserAction(event, createMockCfg(), TEST_ACCOUNT_ID);
       expect(result).toBeUndefined();
+    });
+
+    it('does not consume non-ask-user form submit actions from other plugins', async () => {
+      await seedPendingQuestion();
+
+      const event = {
+        operator: { open_id: TEST_SENDER },
+        open_chat_id: TEST_CHAT_ID,
+        action: {
+          tag: 'form_submit',
+          name: 'example_form.submit',
+          form_value: {
+            field_a: 'alpha',
+            field_b: 'beta',
+          },
+        },
+      };
+
+      try {
+        const result = handleAskUserAction(event, createMockCfg(), TEST_ACCOUNT_ID);
+
+        expect(result).toBeUndefined();
+      } finally {
+        await vi.advanceTimersByTimeAsync(PENDING_QUESTION_TTL_MS);
+      }
     });
 
     it('returns expired toast for unknown questionId', () => {

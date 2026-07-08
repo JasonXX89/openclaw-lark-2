@@ -26,7 +26,7 @@ interface FeishuCardActionTriggerEvent {
   open_chat_id?: string;
   open_message_id?: string;
   context?: { open_chat_id?: string; open_message_id?: string };
-  action?: { value?: { action?: string } };
+  action?: { name?: string; value?: { action?: string } };
 }
 
 function extractBasics(data: unknown): {
@@ -37,7 +37,7 @@ function extractBasics(data: unknown): {
 } | null {
   try {
     const ev = data as FeishuCardActionTriggerEvent;
-    const action = ev.action?.value?.action;
+    const action = ev.action?.value?.action ?? ev.action?.name;
     if (!action || typeof action !== 'string') return null;
     const openChatId = ev.open_chat_id ?? ev.context?.open_chat_id;
     const openMessageId = ev.open_message_id ?? ev.context?.open_message_id;
@@ -225,6 +225,9 @@ export async function dispatchFeishuPluginInteractiveHandler(params: {
       },
     });
 
+    log.debug(
+      `interactive dispatch result: action=${basics.action}, matched=${result.matched}, handled=${result.handled}`,
+    );
     if (!result.matched) return undefined;
     return cardResponse;
   } catch (err) {
