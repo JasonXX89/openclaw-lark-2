@@ -26,6 +26,8 @@ import { withTicket } from '../core/lark-ticket';
 import { larkLogger } from '../core/lark-logger';
 import { handleCardAction } from '../tools/auto-auth';
 import { handleAskUserAction } from '../tools/ask-user-question';
+import { dispatchSyntheticTextMessage } from '../messaging/inbound/synthetic-message';
+import { resolveCardCallbackOperatorId } from '../core/card-action-operator';
 import { buildQueueKey, enqueueFeishuChatTask, getActiveDispatcher, hasActiveTask } from './chat-queue';
 import { extractRawTextFromEvent, isLikelyAbortText } from './abort-detect';
 import type { MonitorContext } from './types';
@@ -404,8 +406,80 @@ export async function handleCommentEvent(ctx: MonitorContext, data: unknown): Pr
 // Card action handler
 // ---------------------------------------------------------------------------
 
+/**
+ * Minimal shape of the `card.action.trigger` event fields consumed by the
+ * inject_prompt handler. `action.value.prompt` carries the text to inject.
+ */
+interface InjectPromptCardEvent {
+  operator?: { open_id?: string; user_id?: string };
+  open_chat_id?: string;
+  open_message_id?: string;
+  context?: { open_chat_id?: string; open_message_id?: string };
+  action?: { value?: { action?: string; prompt?: string } };
+}
+
+/**
+ * Generic "button click = inject a user message" mechanism.
+ *
+ * When a card button's `value` is `{ action: "inject_prompt", prompt: "<text>" }`,
+ * clicking it dispatches `<text>` as a synthetic user message (via the standard
+ * inbound pipeline, `replyToMessageId` set to the card's own message so the agent
+ * replies in the same conversation) and returns a toast receipt. This lets any
+ * card offer functional buttons — click a button, the corresponding request runs,
+ * no typing needed — without registering a business plugin handler.
+ *
+ * Returns the toast receipt when the event is an inject_prompt action, or
+ * `undefined` so the caller falls through to the other card handlers.
+ *
+ * Note: `card.action.trigger` is a synchronous request/response — the handler
+ * MUST return a card receipt (here a toast). Returning `undefined` makes the SDK
+ * fall back to a card update it cannot resolve, which Feishu rejects with
+ * `99992354 Invalid ids:[card]`. So we dispatch the synthetic message
+ * asynchronously (`setImmediate`) and return the toast synchronously.
+ */
+function handleInjectPromptAction(ctx: MonitorContext, data: unknown): unknown {
+  const ev = data as InjectPromptCardEvent;
+  const val = ev.action?.value;
+  if (!val || val.action !== 'inject_prompt' || typeof val.prompt !== 'string' || !val.prompt.trim()) {
+    return undefined;
+  }
+
+  const senderOpenId = resolveCardCallbackOperatorId(ev.operator);
+  const chatId = ev.open_chat_id ?? ev.context?.open_chat_id;
+  const cardMsgId = ev.open_message_id ?? ev.context?.open_message_id;
+
+  if (!senderOpenId || !chatId) {
+    elog.warn('inject_prompt: missing senderOpenId or chatId, ignoring');
+    return { toast: { type: 'error', content: '无法处理该操作' } };
+  }
+
+  const prompt = val.prompt;
+  const syntheticMessageId = cardMsgId ? `${cardMsgId}:inject` : `card:inject:${senderOpenId}:${chatId}`;
+
+  // Dispatch asynchronously so the synchronous toast receipt is not blocked.
+  setImmediate(() => {
+    dispatchSyntheticTextMessage({
+      cfg: ctx.cfg,
+      accountId: ctx.accountId,
+      chatId,
+      senderOpenId,
+      text: prompt,
+      syntheticMessageId,
+      replyToMessageId: cardMsgId ?? '',
+      chatType: 'p2p',
+      runtime: ctx.runtime,
+    }).catch((e) => elog.warn(`inject_prompt dispatch failed: ${e}`));
+  });
+
+  return { toast: { type: 'info', content: '收到，正在为你处理…' } };
+}
+
 export async function handleCardActionEvent(ctx: MonitorContext, data: unknown): Promise<unknown> {
   try {
+    // inject_prompt：通用「按钮点击 = 注入一条用户消息」机制（渠道内建，优先拦截）。
+    const injectResult = handleInjectPromptAction(ctx, data);
+    if (injectResult !== undefined) return injectResult;
+
     // AskUserQuestion：表单卡片交互（宿主内建能力优先）
     const askResult = handleAskUserAction(data, ctx.cfg, ctx.accountId);
     if (askResult !== undefined) return askResult;
