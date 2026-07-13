@@ -114,4 +114,87 @@ describe('handleCardActionEvent — inject_prompt', () => {
     expect(dispatchSyntheticTextMessage).not.toHaveBeenCalled();
     expect(dispatchFeishuPluginInteractiveHandler).toHaveBeenCalledTimes(1);
   });
+
+  it('ignores inject_prompt with a non-string prompt (falls through)', async () => {
+    await handleCardActionEvent(makeCtx(), {
+      operator: { open_id: 'ou_sender' },
+      open_chat_id: 'oc_chat',
+      open_message_id: 'om_card',
+      // A malformed card where prompt is not a string must not dispatch.
+      action: { value: { action: 'inject_prompt', prompt: 123 } },
+    });
+
+    expect(dispatchSyntheticTextMessage).not.toHaveBeenCalled();
+    expect(dispatchFeishuPluginInteractiveHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns an error toast and does not dispatch when the operator id is missing', async () => {
+    const response = await handleCardActionEvent(makeCtx(), {
+      operator: {}, // neither open_id nor user_id
+      open_chat_id: 'oc_chat',
+      open_message_id: 'om_card',
+      action: { value: { action: 'inject_prompt', prompt: '帮我总结群' } },
+    });
+
+    expect(response).toEqual({ toast: { type: 'error', content: '无法处理该操作' } });
+    await flush();
+    expect(dispatchSyntheticTextMessage).not.toHaveBeenCalled();
+    // It intercepts (returns the error toast) rather than falling through.
+    expect(dispatchFeishuPluginInteractiveHandler).not.toHaveBeenCalled();
+  });
+
+  it('returns an error toast and does not dispatch when the chat id is missing', async () => {
+    const response = await handleCardActionEvent(makeCtx(), {
+      operator: { open_id: 'ou_sender' },
+      // no open_chat_id and no context.open_chat_id
+      open_message_id: 'om_card',
+      action: { value: { action: 'inject_prompt', prompt: '帮我总结群' } },
+    });
+
+    expect(response).toEqual({ toast: { type: 'error', content: '无法处理该操作' } });
+    await flush();
+    expect(dispatchSyntheticTextMessage).not.toHaveBeenCalled();
+    expect(dispatchFeishuPluginInteractiveHandler).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a synthetic id and empty replyTo when the card message id is missing', async () => {
+    const response = await handleCardActionEvent(makeCtx(), {
+      operator: { open_id: 'ou_sender' },
+      open_chat_id: 'oc_chat',
+      // no open_message_id and no context.open_message_id
+      action: { value: { action: 'inject_prompt', prompt: 'hi' } },
+    });
+
+    expect(response).toEqual({ toast: { type: 'info', content: '收到，正在为你处理…' } });
+    await flush();
+    // syntheticMessageId falls back to `card:inject:${senderOpenId}:${chatId}`,
+    // and replyToMessageId is '' so the downstream sends a normal message
+    // instead of a threaded reply.
+    expect(dispatchSyntheticTextMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 'oc_chat',
+        senderOpenId: 'ou_sender',
+        text: 'hi',
+        syntheticMessageId: 'card:inject:ou_sender:oc_chat',
+        replyToMessageId: '',
+      }),
+    );
+  });
+
+  it('swallows a synthetic-dispatch rejection and still returns the toast', async () => {
+    vi.mocked(dispatchSyntheticTextMessage).mockRejectedValueOnce(new Error('boom'));
+
+    const response = await handleCardActionEvent(makeCtx(), {
+      operator: { open_id: 'ou_sender' },
+      open_chat_id: 'oc_chat',
+      open_message_id: 'om_card',
+      action: { value: { action: 'inject_prompt', prompt: '帮我总结群' } },
+    });
+
+    // The toast is returned synchronously regardless of the async dispatch outcome.
+    expect(response).toEqual({ toast: { type: 'info', content: '收到，正在为你处理…' } });
+    // The rejection is caught (.catch) — awaiting the flush must not throw.
+    await expect(flush()).resolves.toBeUndefined();
+    expect(dispatchSyntheticTextMessage).toHaveBeenCalledTimes(1);
+  });
 });
