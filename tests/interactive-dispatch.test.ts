@@ -98,4 +98,48 @@ describe('dispatchFeishuPluginInteractiveHandler', () => {
       rawEvent,
     }));
   });
+
+  it('routes Feishu form_submit by form name when button action value and name are absent', async () => {
+    const handler = vi.fn().mockReturnValue({ toast: { type: 'success', content: 'form submit handler reached' } });
+    registerPluginInteractiveHandler('example-plugin', {
+      channel: 'feishu',
+      namespace: 'example_form.submit',
+      handler,
+    });
+
+    const rawEvent = {
+      operator: { open_id: 'ou_sender' },
+      context: {
+        open_chat_id: 'oc_chat',
+        open_message_id: 'om_card',
+      },
+      action: {
+        tag: 'form_submit',
+        form_name: 'example_form.submit',
+        form_value: {
+          field_a: 'alpha',
+          field_b: 'beta',
+        },
+      },
+    };
+
+    const response = await dispatchFeishuPluginInteractiveHandler({
+      cfg: {} as any,
+      accountId: 'account-a',
+      data: rawEvent,
+    });
+
+    expect(response).toEqual({ toast: { type: 'success', content: 'form submit handler reached' } });
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+      channel: 'feishu',
+      accountId: 'account-a',
+      senderId: 'ou_sender',
+      conversationId: 'oc_chat',
+      messageId: 'om_card',
+      namespace: 'example_form.submit',
+      payload: '',
+      action: 'example_form.submit',
+      rawEvent,
+    }));
+  });
 });

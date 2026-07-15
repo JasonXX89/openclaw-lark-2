@@ -7,6 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearPluginInteractiveHandlers, registerPluginInteractiveHandler } from 'openclaw/plugin-sdk/plugin-runtime';
 
 // ---------------------------------------------------------------------------
 // Module mocks (hoisted)
@@ -35,6 +36,10 @@ vi.mock('../src/messaging/inbound/handler', () => ({
   handleFeishuMessage: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../src/tools/auto-auth', () => ({
+  handleCardAction: vi.fn(),
+}));
+
 const mockGetTicket = vi.fn();
 const mockWithTicket = vi.fn();
 vi.mock('../src/core/lark-ticket', () => ({
@@ -53,6 +58,8 @@ vi.mock('../src/tools/helpers', () => ({
 // ---------------------------------------------------------------------------
 
 import { handleAskUserAction, registerAskUserQuestionTool } from '../src/tools/ask-user-question';
+import { handleCardActionEvent } from '../src/channel/event-handlers';
+import type { MonitorContext } from '../src/channel/types';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -66,6 +73,18 @@ const PENDING_QUESTION_TTL_MS = 5 * 60 * 1000;
 
 function createMockCfg() {
   return {} as any;
+}
+
+function createMockMonitorContext(): MonitorContext {
+  return {
+    cfg: createMockCfg(),
+    lark: { account: { appId: 'cli_test' } } as never,
+    accountId: TEST_ACCOUNT_ID,
+    chatHistories: new Map(),
+    messageDedup: { tryRecord: vi.fn(() => true) } as never,
+    log: vi.fn(),
+    error: vi.fn(),
+  };
 }
 
 /**
@@ -145,10 +164,12 @@ function createFormSubmitEvent(questionId: string, formValue: Record<string, unk
 describe('AskUserQuestion card callback', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearPluginInteractiveHandlers();
     vi.useFakeTimers();
   });
 
   afterEach(() => {
+    clearPluginInteractiveHandlers();
     vi.useRealTimers();
   });
 
@@ -226,6 +247,130 @@ describe('AskUserQuestion card callback', () => {
         const result = handleAskUserAction(event, createMockCfg(), TEST_ACCOUNT_ID);
 
         expect(result).toBeUndefined();
+      } finally {
+        await vi.advanceTimersByTimeAsync(PENDING_QUESTION_TTL_MS);
+      }
+    });
+
+    it('does not consume business form_submit by form_name when an ask-user question is pending', async () => {
+      await seedPendingQuestion();
+
+      const event = {
+        operator: { open_id: TEST_SENDER },
+        context: {
+          open_chat_id: TEST_CHAT_ID,
+          open_message_id: 'om_business_card',
+        },
+        action: {
+          tag: 'form_submit',
+          form_name: 'example_form.submit',
+          form_value: {
+            field_a: 'alpha',
+            field_b: 'beta',
+          },
+        },
+      };
+
+      try {
+        const result = handleAskUserAction(event, createMockCfg(), TEST_ACCOUNT_ID);
+
+        expect(result).toBeUndefined();
+      } finally {
+        await vi.advanceTimersByTimeAsync(PENDING_QUESTION_TTL_MS);
+      }
+    });
+
+    it('accepts ask-user form_submit by value.action when button name is absent', async () => {
+      const questionId = await seedPendingQuestion();
+
+      const event = {
+        operator: { open_id: TEST_SENDER },
+        context: {
+          open_chat_id: TEST_CHAT_ID,
+          open_message_id: TEST_MSG_ID,
+        },
+        action: {
+          tag: 'form_submit',
+          value: {
+            action: 'ask_user_submit',
+            operation_id: questionId,
+          },
+          form_value: {
+            selection_0: '苹果',
+          },
+        },
+      };
+
+      const result = handleAskUserAction(event, createMockCfg(), TEST_ACCOUNT_ID) as any;
+
+      expect(result.toast.type).toBe('success');
+    });
+
+    it('accepts legacy ask-user form_submit without button name or value.action', async () => {
+      await seedPendingQuestion();
+
+      const event = {
+        operator: { open_id: TEST_SENDER },
+        context: {
+          open_chat_id: TEST_CHAT_ID,
+          open_message_id: TEST_MSG_ID,
+        },
+        action: {
+          tag: 'form_submit',
+          form_value: {
+            selection_0: '苹果',
+          },
+        },
+      };
+
+      const result = handleAskUserAction(event, createMockCfg(), TEST_ACCOUNT_ID) as any;
+
+      expect(result.toast.type).toBe('success');
+    });
+
+    it('routes business form_submit through handleCardActionEvent when ask-user is pending in the same chat', async () => {
+      await seedPendingQuestion();
+
+      const handler = vi.fn().mockReturnValue({ toast: { type: 'success', content: 'business handler reached' } });
+      registerPluginInteractiveHandler('example-plugin', {
+        channel: 'feishu',
+        namespace: 'example_form.submit',
+        handler,
+      });
+
+      const rawEvent = {
+        operator: { open_id: TEST_SENDER },
+        context: {
+          open_chat_id: TEST_CHAT_ID,
+          open_message_id: 'om_business_card',
+        },
+        action: {
+          tag: 'form_submit',
+          form_name: 'example_form.submit',
+          form_value: {
+            field_a: 'alpha',
+            field_b: 'beta',
+          },
+        },
+      };
+
+      try {
+        const result = await handleCardActionEvent(createMockMonitorContext(), rawEvent);
+
+        expect(result).toEqual({ toast: { type: 'success', content: 'business handler reached' } });
+        expect(handler).toHaveBeenCalledWith(
+          expect.objectContaining({
+            channel: 'feishu',
+            accountId: TEST_ACCOUNT_ID,
+            senderId: TEST_SENDER,
+            conversationId: TEST_CHAT_ID,
+            messageId: 'om_business_card',
+            namespace: 'example_form.submit',
+            payload: '',
+            action: 'example_form.submit',
+            rawEvent,
+          }),
+        );
       } finally {
         await vi.advanceTimersByTimeAsync(PENDING_QUESTION_TTL_MS);
       }
