@@ -134,6 +134,13 @@ export async function checkMessageGate(params: {
   /** account 级别的 ClawdbotConfig（channels.feishu 已替换为 per-account 合并后的配置） */
   accountScopedCfg?: ClawdbotConfig;
   log: (...args: unknown[]) => void;
+  /**
+   * When true, treat the mention requirement as already satisfied (e.g. a card
+   * click is itself an explicit user action targeting the bot). Group/DM
+   * admission and sender-allowlist checks still run — this only bypasses the
+   * "must @-mention the bot" requirement, not access control.
+   */
+  mentionSatisfied?: boolean;
 }): Promise<GateResult> {
   const { ctx } = params;
 
@@ -331,8 +338,9 @@ function checkGroupGate(params: {
   account: LarkAccount;
   accountScopedCfg?: ClawdbotConfig;
   log: (...args: unknown[]) => void;
+  mentionSatisfied?: boolean;
 }): GateResult {
-  const { ctx, accountFeishuCfg, account, accountScopedCfg, log } = params;
+  const { ctx, accountFeishuCfg, account, accountScopedCfg, log, mentionSatisfied } = params;
   const core = LarkClient.runtime;
 
   // ---- Layer 1: Group-level admission (shared with bot path) ----
@@ -382,7 +390,7 @@ function checkGroupGate(params: {
     requireMentionOverride: accountFeishuCfg?.requireMention,
   });
 
-  if (requireMention && !mentionedBot(ctx)) {
+  if (requireMention && !mentionedBot(ctx) && !mentionSatisfied) {
     // Check if @all mention should bypass the mention requirement
     if (ctx.mentionAll) {
       const respondToAll = resolveRespondToMentionAll({

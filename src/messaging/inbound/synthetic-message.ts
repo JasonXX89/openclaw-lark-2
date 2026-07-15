@@ -28,6 +28,11 @@ export async function dispatchSyntheticTextMessage(params: {
     error?: (msg: string) => void;
   };
   forceMention?: boolean;
+  /** When true, run the real access-control gate with the mention requirement
+   *  treated as satisfied (see handleFeishuMessage.cardActionGate). Use for
+   *  card-action synthetic messages so group/DM admission + sender allowlists
+   *  are still enforced. Takes precedence over forceMention. */
+  cardActionGate?: boolean;
 }): Promise<string> {
   const handleFeishuMessage = getInboundHandler();
   const {
@@ -42,6 +47,7 @@ export async function dispatchSyntheticTextMessage(params: {
     threadId,
     runtime,
     forceMention = true,
+    cardActionGate,
   } = params;
 
   const syntheticEvent = {
@@ -80,6 +86,7 @@ export async function dispatchSyntheticTextMessage(params: {
             event: syntheticEvent as any,
             accountId,
             forceMention,
+            cardActionGate,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             runtime: runtime as any,
             replyToMessageId,
