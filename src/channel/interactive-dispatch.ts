@@ -26,7 +26,7 @@ interface FeishuCardActionTriggerEvent {
   open_chat_id?: string;
   open_message_id?: string;
   context?: { open_chat_id?: string; open_message_id?: string };
-  action?: { name?: string; value?: { action?: string } };
+  action?: { name?: string; value?: { action?: string }; form_name?: string };
 }
 
 function extractBasics(data: unknown): {
@@ -37,7 +37,7 @@ function extractBasics(data: unknown): {
 } | null {
   try {
     const ev = data as FeishuCardActionTriggerEvent;
-    const action = ev.action?.value?.action ?? ev.action?.name;
+    const action = ev.action?.value?.action ?? ev.action?.name ?? formSubmitActionName(ev);
     if (!action || typeof action !== 'string') return null;
     const openChatId = ev.open_chat_id ?? ev.context?.open_chat_id;
     const openMessageId = ev.open_message_id ?? ev.context?.open_message_id;
@@ -50,6 +50,12 @@ function extractBasics(data: unknown): {
   } catch {
     return null;
   }
+}
+
+function formSubmitActionName(ev: FeishuCardActionTriggerEvent): string | undefined {
+  const tag = (ev.action as { tag?: unknown } | undefined)?.tag;
+  if (tag !== 'form_submit') return undefined;
+  return ev.action?.form_name;
 }
 
 export type FeishuInteractiveHandlerResponse = unknown;

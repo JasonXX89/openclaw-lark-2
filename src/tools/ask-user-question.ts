@@ -220,6 +220,7 @@ export function handleAskUserAction(data: unknown, _cfg: ClawdbotConfig, account
       action?: {
         tag?: string;
         name?: string;
+        form_name?: string;
         form_value?: Record<string, unknown>;
         value?: Record<string, unknown>;
       };
@@ -229,6 +230,7 @@ export function handleAskUserAction(data: unknown, _cfg: ClawdbotConfig, account
     openChatId = event.open_chat_id ?? event.context?.open_chat_id;
     const actionTag = event.action?.tag;
     const actionName = event.action?.name;
+    const formName = event.action?.form_name;
     formValue = event.action?.form_value as Record<string, unknown> | undefined;
 
     log.info(
@@ -239,7 +241,8 @@ export function handleAskUserAction(data: unknown, _cfg: ClawdbotConfig, account
     // Extract action/operationId from button value (may not propagate for form submit)
     const val = event.action?.value;
     if (val && typeof val === 'object') {
-      action = val.action as string | undefined;
+      const valueAction = val.action;
+      action = valueAction === ACTION_SUBMIT ? ACTION_SUBMIT : undefined;
       operationId = val.operation_id as string | undefined;
     }
 
@@ -257,7 +260,15 @@ export function handleAskUserAction(data: unknown, _cfg: ClawdbotConfig, account
       action = ACTION_SUBMIT;
     }
     // Some SDK versions emit tag='form_submit' without button value/name.
-    if (!action && actionTag === 'form_submit' && (!actionName || actionName.startsWith(SUBMIT_BUTTON_PREFIX))) {
+    // Business plugins also use form_submit; a form_name means it belongs to
+    // the named business form, while absent form_name keeps the old AskUser
+    // chat-scoped fallback for legacy callbacks.
+    if (
+      !action &&
+      actionTag === 'form_submit' &&
+      !formName &&
+      (!actionName || actionName.startsWith(SUBMIT_BUTTON_PREFIX))
+    ) {
       action = ACTION_SUBMIT;
       if (!formValue && event.action) {
         formValue = event.action as unknown as Record<string, unknown>;
