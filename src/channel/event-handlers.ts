@@ -9,6 +9,7 @@
  * dependencies needed to process the event.
  */
 
+import * as crypto from 'node:crypto';
 import type {
   FeishuBotAddedEvent,
   FeishuMessageEvent,
@@ -26,6 +27,9 @@ import { withTicket } from '../core/lark-ticket';
 import { larkLogger } from '../core/lark-logger';
 import { handleCardAction } from '../tools/auto-auth';
 import { handleAskUserAction } from '../tools/ask-user-question';
+import { dispatchSyntheticTextMessage } from '../messaging/inbound/synthetic-message';
+import { getChatInfo } from '../core/chat-info-cache';
+import { getMessageFeishu } from '../messaging/shared/message-lookup';
 import { buildQueueKey, enqueueFeishuChatTask, getActiveDispatcher, hasActiveTask } from './chat-queue';
 import { extractRawTextFromEvent, isLikelyAbortText } from './abort-detect';
 import type { MonitorContext } from './types';
@@ -404,8 +408,134 @@ export async function handleCommentEvent(ctx: MonitorContext, data: unknown): Pr
 // Card action handler
 // ---------------------------------------------------------------------------
 
+/**
+ * Minimal shape of the `card.action.trigger` event fields consumed by the
+ * inject_prompt handler. `action.value.prompt` carries the text to inject.
+ */
+interface InjectPromptCardEvent {
+  operator?: { open_id?: string; user_id?: string };
+  open_chat_id?: string;
+  open_message_id?: string;
+  context?: { open_chat_id?: string; open_message_id?: string };
+  // Merged onto `data` from the v2 event envelope header by the SDK's
+  // EventDispatcher.parse (same mechanism that exposes app_id). Used as a
+  // per-click unique id for inbound dedup; not guaranteed on the card surface,
+  // hence the token / random fallback below.
+  event_id?: string;
+  token?: string;
+  action?: { value?: { action?: string; prompt?: string } };
+}
+
+/**
+ * Generic "button click = inject a user message" mechanism.
+ *
+ * When a card button's `value` is `{ action: "inject_prompt", prompt: "<text>" }`,
+ * clicking it dispatches `<text>` as a synthetic user message (via the standard
+ * inbound pipeline, `replyToMessageId` set to the card's own message so the agent
+ * replies in the same conversation) and returns a toast receipt. This lets any
+ * card offer functional buttons — click a button, the corresponding request runs,
+ * no typing needed — without registering a business plugin handler.
+ *
+ * Returns the toast receipt when the event is an inject_prompt action, or
+ * `undefined` so the caller falls through to the other card handlers.
+ *
+ * Security / correctness (mirrors reaction-handler, which faces the same
+ * "card-ish event carries no chat_type/thread_id" problem):
+ *  - Chat type is resolved from the cached chat-info helper and the dispatch
+ *    fails closed if it can't be determined, so a group card is never
+ *    mis-routed as a p2p direct session.
+ *  - The synthetic message goes through the real access-control gate
+ *    (`cardActionGate`): the click satisfies the mention requirement, but
+ *    group/DM admission and sender allowlists are still enforced.
+ *  - The synthetic message id is unique per click (event_id / token / uuid), so
+ *    inbound MessageSid dedup does not silently drop a second button click.
+ *  - Only a real `operator.open_id` is used as the sender identity; a Schema-2
+ *    `user_id` is never smuggled into an `open_id` field (fail closed instead).
+ *
+ * Note: `card.action.trigger` is a synchronous request/response — the handler
+ * MUST return a card receipt (here a toast). Returning `undefined` makes the SDK
+ * fall back to a card update it cannot resolve, which Feishu rejects with
+ * `99992354 Invalid ids:[card]`. So we dispatch the synthetic message
+ * asynchronously (`setImmediate`) and return the toast synchronously.
+ */
+function handleInjectPromptAction(ctx: MonitorContext, data: unknown): unknown {
+  const ev = data as InjectPromptCardEvent;
+  const val = ev.action?.value;
+  if (!val || val.action !== 'inject_prompt' || typeof val.prompt !== 'string' || !val.prompt.trim()) {
+    return undefined;
+  }
+
+  // Use only a real open_id as the sender identity. A Schema-2 callback may carry
+  // only operator.user_id; that is a different namespace and must not be written
+  // into an open_id field (would corrupt session routing, sender allowlists,
+  // user-token lookup, and owner checks). Fail closed until user_id→open_id
+  // conversion is supported.
+  const senderOpenId = ev.operator?.open_id?.trim();
+  const chatId = ev.open_chat_id ?? ev.context?.open_chat_id;
+  const cardMsgId = ev.open_message_id ?? ev.context?.open_message_id;
+
+  if (!senderOpenId || !chatId) {
+    elog.warn('inject_prompt: missing operator open_id or chatId, ignoring');
+    return { toast: { type: 'error', content: '无法处理该操作' } };
+  }
+
+  const prompt = val.prompt;
+  // Unique per click so inbound dedup (by MessageSid, ~20min) does not drop a
+  // second click on a different button of the same card. Prefer the callback's
+  // unique event_id; fall back to token, then a random uuid.
+  const syntheticMessageId = ev.event_id?.trim() || ev.token?.trim() || crypto.randomUUID();
+
+  // Dispatch asynchronously so the synchronous toast receipt is not blocked.
+  // The card trigger carries no chat_type or thread_id, so resolve both here.
+  setImmediate(async () => {
+    try {
+      // Resolve the real chat type; fail closed if it can't be determined
+      // (do NOT assume p2p — that would mis-route a group card).
+      const info = await getChatInfo({ cfg: ctx.cfg, chatId, accountId: ctx.accountId });
+      if (!info) {
+        elog.warn(`inject_prompt: could not resolve chat type for ${chatId}, skipping dispatch`);
+        return;
+      }
+      const chatType = info.chatMode === 'group' || info.chatMode === 'topic' ? 'group' : 'p2p';
+
+      // Recover the thread id from the card's own message (the trigger has none)
+      // so thread session isolation is preserved.
+      let threadId: string | undefined;
+      if (cardMsgId) {
+        const msg = await getMessageFeishu({ cfg: ctx.cfg, messageId: cardMsgId, accountId: ctx.accountId }).catch(
+          () => null,
+        );
+        threadId = msg?.threadId;
+      }
+
+      await dispatchSyntheticTextMessage({
+        cfg: ctx.cfg,
+        accountId: ctx.accountId,
+        chatId,
+        senderOpenId,
+        text: prompt,
+        syntheticMessageId,
+        replyToMessageId: cardMsgId ?? '',
+        chatType,
+        threadId,
+        forceMention: false,
+        cardActionGate: true,
+        runtime: ctx.runtime,
+      });
+    } catch (e) {
+      elog.warn(`inject_prompt dispatch failed: ${e}`);
+    }
+  });
+
+  return { toast: { type: 'info', content: '收到，正在为你处理…' } };
+}
+
 export async function handleCardActionEvent(ctx: MonitorContext, data: unknown): Promise<unknown> {
   try {
+    // inject_prompt：通用「按钮点击 = 注入一条用户消息」机制（渠道内建，优先拦截）。
+    const injectResult = handleInjectPromptAction(ctx, data);
+    if (injectResult !== undefined) return injectResult;
+
     // AskUserQuestion：表单卡片交互（宿主内建能力优先）
     const askResult = handleAskUserAction(data, ctx.cfg, ctx.accountId);
     if (askResult !== undefined) return askResult;

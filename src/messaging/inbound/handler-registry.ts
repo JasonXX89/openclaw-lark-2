@@ -19,6 +19,10 @@ export interface InboundHandlerParams {
   accountId?: string;
   replyToMessageId?: string;
   forceMention?: boolean;
+  /** Run the real access-control gate but treat the mention requirement as
+   *  satisfied (card-action synthetic messages). Takes precedence over
+   *  forceMention. See handleFeishuMessage. */
+  cardActionGate?: boolean;
   skipTyping?: boolean;
 }
 
