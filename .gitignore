@@ -23,4 +23,4 @@ src/tools/docs/
 /**/package-lock.json
 /**/.DS_Store
 
-.eslintcache
+.eslintcache*.tgz
