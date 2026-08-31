@@ -1,76 +1,88 @@
-# OpenClaw Lark/Feishu Plugin
+# openclaw-lark-2
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![npm version](https://img.shields.io/npm/v/@larksuite/openclaw-lark.svg)](https://www.npmjs.com/package/@larksuite/openclaw-lark)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22-blue.svg)](https://nodejs.org/)
+**OpenClaw 2.0（2026.8.1+）专属的飞书 / Lark 渠道插件** — 基于 `@larksuite/openclaw-lark` 的独立维护分支。
 
-[中文版](./README.zh.md) | English
+> OpenClaw 2.0（2026.8.1）重构了插件 SDK（移除了裸 `openclaw/plugin-sdk` 导出、重命名了多个子路径、session 存储从 JSON 迁移到 SQLite），官方 `@larksuite/openclaw-lark` 未跟进，导致在 2.0 下无法加载、卡片 footer 指标消失。本插件针对 2.0 SDK 全面适配，开箱即用。
 
-This is the official Lark/Feishu plugin for OpenClaw, developed and maintained by the Lark/Feishu Open Platform team. It seamlessly connects your OpenClaw Agent to your Lark/Feishu workspace, enabling it to directly read from and write to messages, docs, bases, calendars, tasks, and more.
+## 特性
 
-## Features
+- **OpenClaw 2.0 原生适配**：SDK 导入路径 / 类型 / 运行时 API 全部对齐 2026.8.1
+- **飞书 / Lark 全量能力**：IM 消息（含 CardKit 流式卡片）、文档（doc/wiki/drive）、多维表格（bitable）、日历、任务、审批等
+- **AskUser 卡片交互**：`feishu_ask_user_question` 交互式提问
+- **完整 footer 指标**：状态 · 耗时 · model · **provider** · tokens · cache · context（7 项，provider 为本分支新增）
+- **多账号**：一个 openclaw 实例同时接入多个飞书应用
 
-This plugin provides comprehensive Lark/Feishu integration for OpenClaw, including:
+## 与官方版的差异
 
-| Category | Capabilities |
-|------|------|
-| 💬 Messenger | Read messages (group/DM history, thread replies), send messages, reply to messages, search messages, download images/files |
-| 📄 Docs | Create, update, and read documents |
-| 📊 Base | Create/manage bases, tables, fields, records (CRUD, batch operations, advanced filtering), views |
-| 📈 Sheets | Create, edit, and view spreadsheets |
-| 📅 Calendar | Manage calendars and events (create/query/update/delete/search), manage attendees, check free/busy status |
-| ✅ Tasks | Manage tasks (create/query/update/complete), manage task lists, subtasks, and comments |
+| 项 | 官方 `@larksuite/openclaw-lark` | 本插件 `@mirr0ch1/openclaw-lark-2` |
+|---|---|---|
+| OpenClaw 版本要求 | `>=2026.5.4` | **`>=2026.8.1`** |
+| 2.0 加载 | ❌ 无法加载 | ✅ |
+| footer 指标（2.0） | ❌ 读取已废弃的 `sessions.json` | ✅ 从 2.0 SQLite 读取 |
+| footer provider 项 | ❌ 无 | ✅ 新增 |
+| `import.meta` / CJS 构建 | ⚠️ Node 24 下加载失败 | ✅ `__dirname` 守卫 |
 
-Additionally, the plugin supports:
-- **📱 Interactive Cards**: Real-time status updates (Thinking/Generating/Complete), plus confirmation buttons for sensitive operations
-- **🌊 Streaming Responses**: Live streaming text directly within message cards
-- **🔒 Permission Policies**: Flexible access control policies for DMs and group chats
-- **⚙️ Advanced Group Configuration**: Per-group settings including allowlists, skill bindings, and custom system prompts
+## 安装
 
-## Security & Risk Warnings (Read Before Use)
+### 通过 ClawHub
 
-This plugin integrates with OpenClaw AI automation capabilities and carries inherent risks such as model hallucinations, unpredictable execution, and prompt injection. After you authorize Lark/Feishu permissions, OpenClaw will act under your user identity within the authorized scope, which may lead to high-risk consequences such as leakage of sensitive data or unauthorized operations. Please use with caution.
+```bash
+openclaw plugin install @mirr0ch1/openclaw-lark-2
+```
 
-To reduce these risks, the plugin enables default security protections at multiple layers. However, these risks still exist. We strongly recommend that you do not proactively modify any default security settings; once relevant restrictions are relaxed, the risks will increase significantly, and you will bear the consequences.
+### 通过 tarball（本机开发）
 
-We recommend using the Lark/Feishu bot connected to OpenClaw as a private conversational assistant. Do not add it to group chats or allow other users to interact with it, to avoid abuse of permissions or data leakage.
+```bash
+pnpm build
+pnpm pack
+openclaw plugin install openclaw-lark-2-2026.8.1.tgz
+```
 
-Please fully understand all usage risks. By using this plugin, you are deemed to voluntarily assume all related responsibilities.
+## 配置
 
+插件注册 `feishu` 渠道，与官方版共用 `channels.feishu` 配置结构：
 
-**Disclaimer:**
+```json5
+{
+  channels: {
+    feishu: {
+      enabled: true,
+      appId: "cli_xxx",
+      appSecret: "xxx",
+      // 多账号示例
+      accounts: {
+        plaud: { appId: "cli_yyy", appSecret: "yyy", dmPolicy: "pairing" },
+      },
+      // footer 七项全开（provider 为新增项）
+      footer: {
+        status: true,
+        elapsed: true,
+        model: true,
+        provider: true,
+        tokens: true,
+        cache: true,
+        context: true,
+      },
+    },
+  },
+  plugins: {
+    allow: ["openclaw-lark-2"],
+  },
+}
+```
 
-This software is licensed under the MIT License. When running, it calls Lark/Feishu Open Platform APIs. To use these APIs, you must comply with the following agreements and privacy policies:
+> 提示：飞书应用需要在开放平台开通 `cardkit:card:write` 权限，流式卡片才能生效。
 
-- [Feishu Privacy Policy](https://www.feishu.cn/en/privacy?from=openclaw_plugin_readme)
-- [Feishu User Terms of Service](https://www.feishu.cn/en/terms?from=openclaw_plugin_readme)
-- [Feishu Store App Service Provider Security Management Specifications](https://open.larkoffice.com/document/uAjLw4CM/uMzNwEjLzcDMx4yM3ATM/management-practice/app-service-provider-security-management-specifications)
+## 开发
 
-- [Lark Privacy Policy](https://www.larksuite.com/user-terms-of-service)
-- [Lark User Terms of Service](https://www.larksuite.com/privacy-policy)
+```bash
+pnpm install
+pnpm typecheck   # 对 openclaw 2026.8.1 类型检查
+pnpm lint
+pnpm build       # tsdown → dist/index.mjs (ESM)
+pnpm test
+```
 
-## Requirements & Installation
+## 致谢 / 许可
 
-Before you start, make sure you have the following:
-
-- **Node.js**: `v22` or higher.
-- **OpenClaw**: OpenClaw is installed and works properly. For details, visit the [OpenClaw official website](https://openclaw.ai).
-
-> **Note**: OpenClaw version must be **2026.2.26** or higher. Check with `openclaw -v`. If below this version, you may encounter issues. Upgrade with:
-> ```bash
-> npm install -g openclaw
-> ```
-
-## Usage Guide
-
-[How to Use the Official Lark/Feishu Plugin for OpenClaw](https://bytedance.larkoffice.com/docx/MFK7dDFLFoVlOGxWCv5cTXKmnMh)
-
-## Contributing
-
-Community contributions are welcome! If you find a bug or have feature suggestions, please submit an [Issue](https://github.com/larksuite/openclaw-larksuite/issues) or a [Pull Request](https://github.com/larksuite/openclaw-larksuite/pulls).
-
-For major changes, we recommend discussing with us first via an Issue.
-
-## License
-
-This project is licensed under the **MIT License**. See [LICENSE](./LICENSE.md) for details.
+基于 [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark)（MIT）二次开发。保留 MIT 许可。

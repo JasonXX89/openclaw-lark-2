@@ -60,13 +60,13 @@ export function getPlatform(): string {
 /**
  * 生成 User-Agent 字符串
  *
- * @returns User-Agent 字符串，格式：`openclaw-lark/{version}/{platform}`
+ * @returns User-Agent 字符串，格式：`openclaw-lark-2/{version}/{platform}`
  *
  * @example
  * ```typescript
- * getUserAgent() // => "openclaw-lark/2026.2.28.5/mac"
+ * getUserAgent() // => "openclaw-lark-2/2026.8.1/mac"
  * ```
  */
 export function getUserAgent(): string {
-  return `openclaw-lark/${getPluginVersion()}/${getPlatform()}`;
+  return `openclaw-lark-2/${getPluginVersion()}/${getPlatform()}`;
 }

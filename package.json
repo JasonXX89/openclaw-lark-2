@@ -1,7 +1,7 @@
 {
-  "name": "@larksuite/openclaw-lark",
-  "version": "2026.7.9",
-  "description": "OpenClaw Lark/Feishu channel plugin",
+  "name": "@mirr0ch1/openclaw-lark-2",
+  "version": "2026.8.1",
+  "description": "OpenClaw 2.0 (2026.8.1+) 飞书/Lark 渠道插件 — independent maintained fork of @larksuite/openclaw-lark",
   "type": "module",
   "exports": {
     ".": {
@@ -13,11 +13,7 @@
   },
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
-  "bin": {
-    "openclaw-lark": "bin/openclaw-lark.js"
-  },
   "files": [
-    "bin/",
     "dist/",
     "skills/",
     "secret-contract-api.js",
@@ -48,7 +44,7 @@
     "zod": "^4.3.6"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.5.4"
+    "openclaw": ">=2026.8.1"
   },
   "peerDependenciesMeta": {
     "openclaw": {
@@ -78,12 +74,12 @@
       "./dist/index.mjs"
     ],
     "channel": {
-      "id": "openclaw-lark",
+      "id": "openclaw-lark-2",
       "label": "Feishu",
-      "selectionLabel": "Lark/Feishu (飞书)",
+      "selectionLabel": "Lark/Feishu (飞书) — openclaw-lark-2",
       "docsPath": "/channels/feishu",
       "docsLabel": "feishu",
-      "blurb": "飞书/Lark enterprise messaging with doc/wiki/drive/task/calendar tools.",
+      "blurb": "飞书/Lark enterprise messaging with doc/wiki/drive/task/calendar tools (OpenClaw 2.0 fork).",
       "aliases": [
         "lark"
       ],
@@ -91,7 +87,7 @@
       "quickstartAllowFrom": true
     },
     "install": {
-      "npmSpec": "@larksuite/openclaw-lark",
+      "npmSpec": "@mirr0ch1/openclaw-lark-2",
       "localPath": "extensions/feishu",
       "defaultChoice": "npm"
     }

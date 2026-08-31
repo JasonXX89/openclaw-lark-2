@@ -102,9 +102,9 @@ export { isMessageExpired } from './src/messaging/inbound/dedup';
 // ---------------------------------------------------------------------------
 
 const plugin = {
-  id: 'openclaw-lark',
+  id: 'openclaw-lark-2',
   name: 'Feishu',
-  description: 'Lark/Feishu channel plugin with im/doc/wiki/drive/task/calendar tools',
+  description: 'Lark/Feishu channel plugin for OpenClaw 2.0 (im/doc/wiki/drive/task/calendar tools)',
   configSchema: emptyPluginConfigSchema(),
   register(api: OpenClawPluginApi): void {
     LarkClient.setRuntime(api.runtime);
