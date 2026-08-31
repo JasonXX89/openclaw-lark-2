@@ -89,7 +89,7 @@ Object.defineProperty(exports, "isMessageExpired", { enumerable: true, get: func
 // Plugin definition
 // ---------------------------------------------------------------------------
 const plugin = {
-    id: 'openclaw-lark',
+    id: 'openclaw-lark-2',
     name: 'Feishu',
     description: 'Lark/Feishu channel plugin with im/doc/wiki/drive/task/calendar tools',
     configSchema: (0, plugin_sdk_1.emptyPluginConfigSchema)(),
