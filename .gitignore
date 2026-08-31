@@ -1,26 +1,3 @@
 node_modules/
-.DS_Store
-
-# feishu plugin build artifacts
-dist/
-release/
-src/tools/docs/
-
+*.tgz
 *.log
-
-# IDE / AI config
-.idea/
-.vscode/
-.claude/
-.cursor/
-.windsurf/
-
-
-# Internal documentation directories
-/doc/
-/docs/
-
-/**/package-lock.json
-/**/.DS_Store
-
-.eslintcache*.tgz
