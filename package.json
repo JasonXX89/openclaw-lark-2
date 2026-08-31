@@ -90,6 +90,9 @@
       "npmSpec": "@mirr0ch1/openclaw-lark-2",
       "localPath": "extensions/feishu",
       "defaultChoice": "npm"
+    },
+    "compat": {
+      "pluginApi": ">=0.1.0"
     }
   }
 }

@@ -60,5 +60,6 @@
         "type": "object"
       }
     }
-  }
+  },
+  "name": "openclaw-lark-2"
 }
