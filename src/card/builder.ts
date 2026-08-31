@@ -220,6 +220,7 @@ export function formatFooterRuntimeSegments(params: {
     cache?: boolean;
     context?: boolean;
     model?: boolean;
+    provider?: boolean;
   };
   metrics?: FooterSessionMetrics;
   elapsedMs?: number;
@@ -258,6 +259,13 @@ export function formatFooterRuntimeSegments(params: {
     if (model) {
       primaryZh.push(model);
       primaryEn.push(model);
+    }
+  }
+  if (footer?.provider && metrics?.provider) {
+    const provider = metrics.provider.trim();
+    if (provider) {
+      primaryZh.push(provider);
+      primaryEn.push(provider);
     }
   }
 
@@ -454,6 +462,7 @@ function buildCompleteCard(params: {
     cache?: boolean;
     context?: boolean;
     model?: boolean;
+    provider?: boolean;
   };
   footerMetrics?: FooterSessionMetrics;
 }): FeishuCard {

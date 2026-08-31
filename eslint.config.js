@@ -86,7 +86,7 @@ export default tseslint.config(
 
       // ── Node.js best practices ────────────────────────────────────────
       'n/prefer-node-protocol': 'error',
-      'n/no-unsupported-features/node-builtins': ['error', { version: '>=22.0.0' }],
+      'n/no-unsupported-features/node-builtins': ['error', { version: '>=22.5.0' }],
       'n/no-extraneous-import': [
         'error',
         {

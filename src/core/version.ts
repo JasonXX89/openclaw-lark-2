@@ -24,9 +24,12 @@ export function getPluginVersion(): string {
 
   try {
     // 当前文件: src/core/version.ts → 向上两级到达项目根目录
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-    const packageJsonPath = join(__dirname, '..', '..', 'package.json');
+    // CJS (tsc output) exposes __dirname; ESM (tsdown output) has import.meta.url.
+    // Using __dirname first keeps the CJS build free of `import.meta`, which
+    // would otherwise trip Node's module-syntax detection (Node 24+) on
+    // typeless .js files that mix CJS `exports` and ESM-only syntax.
+    const moduleDir = typeof __dirname !== 'undefined' ? __dirname : dirname(fileURLToPath(import.meta.url));
+    const packageJsonPath = join(moduleDir, '..', '..', 'package.json');
 
     const raw = readFileSync(packageJsonPath, 'utf8');
     const pkg = JSON.parse(raw) as { version?: string };

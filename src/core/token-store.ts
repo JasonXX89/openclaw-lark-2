@@ -29,7 +29,10 @@ import { larkLogger } from './lark-logger';
 const log = larkLogger('core/token-store');
 
 // Dynamic require to avoid security scanner false positive (child-process).
-// CJS (tsc output) has __filename; ESM (tsdown output) has import.meta.url.
+// CJS (tsc output) exposes __filename; ESM (tsdown output) has import.meta.url.
+// Prefer __filename so the CJS build avoids `import.meta` (Node 24+ module
+// syntax detection rejects typeless .js files mixing CJS exports and ESM-only
+// syntax). The npm CJS artifact should be built/shipped as ESM to fully avoid it.
 const _require = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
 const _cpMod = ['child', 'process'].join('_');
 const _cp = _require(`node:${_cpMod}`) as typeof import('node:child_process');

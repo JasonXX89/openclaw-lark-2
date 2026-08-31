@@ -11,9 +11,11 @@
  * detection to UnavailableGuard.
  */
 
-import { readFile } from 'node:fs/promises';
-import { resolveDefaultAgentId } from 'openclaw/plugin-sdk/agent-runtime';
-import type { ReplyPayload } from 'openclaw/plugin-sdk';
+// eslint-disable-next-line n/no-unsupported-features/node-builtins -- node:sqlite is required for OpenClaw 2.0 session metrics (Node >=22.5).
+import { DatabaseSync } from 'node:sqlite';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import type { ReplyPayload } from 'openclaw/plugin-sdk/core';
 import { SILENT_REPLY_TOKEN } from 'openclaw/plugin-sdk/reply-runtime';
 import { extractLarkApiCode } from '../core/api-error';
 import { larkLogger } from '../core/lark-logger';
@@ -138,137 +140,76 @@ export class StreamingCardController {
 
   private async getFooterSessionMetrics(): Promise<FooterSessionMetrics | undefined> {
     try {
-      const runtime = LarkClient.runtime as {
-        agent?: {
-          session?: {
-            resolveStorePath?: (storePath?: string, opts?: { agentId?: string }) => string;
-            loadSessionStore?: (storePath: string) => Record<string, Record<string, unknown>>;
-          };
-        };
-        channel?: {
-          session?: {
-            resolveStorePath?: (storePath?: string, opts?: { agentId?: string }) => string;
-          };
-        };
-      } | null;
+      const runtime = LarkClient.runtime;
       if (!runtime) return undefined;
 
-      const cfgWithSession = this.deps.cfg as { sessions?: { store?: string }; session?: { store?: string } };
-      const sessionStorePath = cfgWithSession.sessions?.store ?? cfgWithSession.session?.store;
-      const key = this.deps.sessionKey.trim().toLowerCase();
+      // OpenClaw 2.0: per-session usage metrics live in the agent transcript
+      // SQLite (transcript_events.message.usage), not the legacy sessions.json
+      // file that 2.0 migrated away. Read them directly from the agent DB.
+      const agentId = this.deps.agentId;
+      const sessionKey = this.deps.sessionKey.trim().toLowerCase();
+      const dbPath = join(homedir(), '.openclaw', 'agents', agentId, 'agent', 'openclaw-agent.sqlite');
 
-      // WORKAROUND: SDK session key round-trip bug.
-      // The SDK's toAgentRequestSessionKey() strips the agent scope from keys
-      // like "agent:hr:main" → "main", then toAgentStoreSessionKey() rebuilds
-      // using the default agent ID → "agent:main:main".  This means metrics
-      // written by the SDK always land under "agent:<defaultAgentId>:…"
-      // regardless of the account-scoped agent ID the plugin routing generated.
-      // Fallback: when the primary key misses, try replacing the agent-id
-      // segment with the resolved default agent ID.
-      // TODO: remove once the SDK preserves the original agent ID during the
-      // request→store key round-trip.
-      const defaultAgentId = resolveDefaultAgentId(this.deps.cfg as Record<string, unknown>);
-      const fallbackKey = key.replace(/^(agent):[^:]+:/, `$1:${defaultAgentId}:`);
-      const candidateKeys = fallbackKey !== key ? [key, fallbackKey] : [key];
+      const db = new DatabaseSync(dbPath, { readOnly: true });
+      try {
+        const window = db
+          .prepare('SELECT session_id FROM session_windows WHERE lower(session_key) = ? ORDER BY updated_at DESC LIMIT 1')
+          .get(sessionKey) as { session_id: string } | undefined;
+        if (!window) return undefined;
 
-      const sessionApi = runtime.agent?.session;
-      if (sessionApi?.resolveStorePath && sessionApi?.loadSessionStore) {
-        const storePath = sessionApi.resolveStorePath(sessionStorePath, { agentId: this.deps.agentId });
-        const store = sessionApi.loadSessionStore(storePath);
+        const row = db
+          .prepare("SELECT event_json FROM transcript_events WHERE session_id = ? AND event_json LIKE '%usage%' ORDER BY rowid DESC LIMIT 1")
+          .get(window.session_id) as { event_json: string } | undefined;
+        if (!row) return undefined;
 
-        let entry: Record<string, unknown> | undefined;
-        let matchedKey: string | undefined;
-        for (const candidate of candidateKeys) {
-          const val = store[candidate];
-          if (val && typeof val === 'object') {
-            entry = val as Record<string, unknown>;
-            matchedKey = candidate;
-            break;
-          }
-        }
-
-        if (!entry) {
-          log.debug('footer metrics lookup: session entry missing', {
-            sessionKey: this.deps.sessionKey,
-            candidateKeys,
-            storePath,
-            source: 'runtime.agent.session',
-          });
-          return undefined;
-        }
+        const ev = JSON.parse(row.event_json) as { message?: { model?: unknown; provider?: unknown; usage?: unknown } };
+        const msg = ev?.message ?? {};
+        const u = msg.usage as
+          | { input?: unknown; output?: unknown; cacheRead?: unknown; cacheWrite?: unknown; totalTokens?: unknown }
+          | undefined;
+        if (!u) return undefined;
 
         const metrics: FooterSessionMetrics = {
-          inputTokens: typeof entry.inputTokens === 'number' ? entry.inputTokens : undefined,
-          outputTokens: typeof entry.outputTokens === 'number' ? entry.outputTokens : undefined,
-          cacheRead: typeof entry.cacheRead === 'number' ? entry.cacheRead : undefined,
-          cacheWrite: typeof entry.cacheWrite === 'number' ? entry.cacheWrite : undefined,
-          totalTokens: typeof entry.totalTokens === 'number' ? entry.totalTokens : undefined,
-          totalTokensFresh: typeof entry.totalTokensFresh === 'boolean' ? entry.totalTokensFresh : undefined,
-          contextTokens: typeof entry.contextTokens === 'number' ? entry.contextTokens : undefined,
-          model: typeof entry.model === 'string' ? entry.model : undefined,
+          inputTokens: typeof u.input === 'number' ? u.input : undefined,
+          outputTokens: typeof u.output === 'number' ? u.output : undefined,
+          cacheRead: typeof u.cacheRead === 'number' ? u.cacheRead : undefined,
+          cacheWrite: typeof u.cacheWrite === 'number' ? u.cacheWrite : undefined,
+          totalTokens: typeof u.totalTokens === 'number' ? u.totalTokens : undefined,
+          model: typeof msg.model === 'string' ? msg.model : undefined,
+          provider: typeof msg.provider === 'string' ? msg.provider : undefined,
         };
-        log.debug('footer metrics lookup: session entry found', {
+
+        // Best-effort context window from the model catalog in cfg.
+        const ctxWindow = this.resolveContextWindow(
+          typeof msg.provider === 'string' ? msg.provider : undefined,
+          typeof msg.model === 'string' ? msg.model : undefined,
+        );
+        if (ctxWindow != null) metrics.contextTokens = ctxWindow;
+
+        log.debug('footer metrics lookup: found usage from agent transcript sqlite', {
           sessionKey: this.deps.sessionKey,
-          matchedKey,
-          storePath,
-          source: 'runtime.agent.session',
+          agentId,
         });
         return metrics;
+      } finally {
+        db.close();
       }
-
-      const channelSession = runtime.channel?.session;
-      if (!channelSession?.resolveStorePath) {
-        return undefined;
-      }
-
-      const storePath = channelSession.resolveStorePath(sessionStorePath, { agentId: this.deps.agentId });
-      const raw = await readFile(storePath, 'utf8');
-      const parsed: unknown = JSON.parse(raw);
-      const store =
-        parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-          ? (parsed as Record<string, Record<string, unknown>>)
-          : {};
-
-      let entry: Record<string, unknown> | undefined;
-      let matchedKey: string | undefined;
-      for (const candidate of candidateKeys) {
-        const val = store[candidate];
-        if (val && typeof val === 'object') {
-          entry = val as Record<string, unknown>;
-          matchedKey = candidate;
-          break;
-        }
-      }
-
-      if (!entry) {
-        log.debug('footer metrics lookup: session entry missing', {
-          sessionKey: this.deps.sessionKey,
-          candidateKeys,
-          storePath,
-          source: 'channel.session.file',
-        });
-        return undefined;
-      }
-
-      const metrics: FooterSessionMetrics = {
-        inputTokens: typeof entry.inputTokens === 'number' ? entry.inputTokens : undefined,
-        outputTokens: typeof entry.outputTokens === 'number' ? entry.outputTokens : undefined,
-        cacheRead: typeof entry.cacheRead === 'number' ? entry.cacheRead : undefined,
-        cacheWrite: typeof entry.cacheWrite === 'number' ? entry.cacheWrite : undefined,
-        totalTokens: typeof entry.totalTokens === 'number' ? entry.totalTokens : undefined,
-        totalTokensFresh: typeof entry.totalTokensFresh === 'boolean' ? entry.totalTokensFresh : undefined,
-        contextTokens: typeof entry.contextTokens === 'number' ? entry.contextTokens : undefined,
-        model: typeof entry.model === 'string' ? entry.model : undefined,
-      };
-      log.debug('footer metrics lookup: session entry found', {
-        sessionKey: this.deps.sessionKey,
-        matchedKey,
-        storePath,
-        source: 'channel.session.file',
-      });
-      return metrics;
     } catch (err) {
       log.warn('footer metrics lookup failed', { error: String(err), sessionKey: this.deps.sessionKey });
+      return undefined;
+    }
+  }
+
+  /** Resolve a model's context window from cfg.models.providers. */
+  private resolveContextWindow(provider: string | undefined, model: string | undefined): number | undefined {
+    try {
+      const providers = (this.deps.cfg as { models?: { providers?: Record<string, { models?: Array<{ id?: string; contextWindow?: number }> }> } }).models
+        ?.providers ?? {};
+      const pcfg = provider ? providers[provider] : undefined;
+      if (!pcfg || !Array.isArray(pcfg.models)) return undefined;
+      const found = pcfg.models.find((m) => m && m.id === model);
+      return typeof found?.contextWindow === 'number' ? found.contextWindow : undefined;
+    } catch {
       return undefined;
     }
   }

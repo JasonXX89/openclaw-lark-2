@@ -76,6 +76,8 @@ export interface FeishuFooterConfig {
   cache?: boolean;
   context?: boolean;
   model?: boolean;
+  /** Show the model provider (e.g. "opencode-go") next to the model name. */
+  provider?: boolean;
 }
 
 // ---------------------------------------------------------------------------
