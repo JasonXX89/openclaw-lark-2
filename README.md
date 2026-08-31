@@ -33,9 +33,8 @@ openclaw plugin install @mirr0ch1/openclaw-lark-2
 ### 通过 tarball（本机开发）
 
 ```bash
-pnpm build
-pnpm pack
-openclaw plugin install openclaw-lark-2-2026.8.1.tgz
+npm pack
+openclaw plugins install openclaw-lark-2-2026.9.1.tgz
 ```
 
 ## 配置
