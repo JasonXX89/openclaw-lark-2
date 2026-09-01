@@ -22,6 +22,7 @@ const helpers_1 = require("../helpers.js");
 const helpers_2 = require("../oapi/helpers.js");
 const version_1 = require("../../core/version.js");
 const domains_1 = require("../../core/domains.js");
+const ssrf_1 = require("../../core/ssrf.js");
 // ---------------------------------------------------------------------------
 // 辅助函数
 // ---------------------------------------------------------------------------
@@ -145,12 +146,13 @@ async function callMcpTool(name, args, toolCallId, uat, brand) {
     };
     if (auth)
         headers.authorization = auth;
-    const res = await fetch(endpoint, {
+    const { response: res, release } = await (0, ssrf_1.guardedRemoteFetch)(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
     });
     const text = await res.text();
+    await release();
     if (!res.ok) {
         throw new Error(`MCP HTTP ${res.status} ${res.statusText}: ${text.slice(0, 4000)}`);
     }

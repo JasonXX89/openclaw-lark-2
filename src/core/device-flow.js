@@ -87,7 +87,7 @@ async function requestDeviceAuthorization(params) {
             Authorization: `Basic ${basicAuth}`,
         },
         body: body.toString(),
-    });
+    }, brand);
     const text = await resp.text();
     log.info(`response status=${resp.status} body=${text.slice(0, 500)}`);
     let data;
@@ -159,7 +159,7 @@ async function pollDeviceToken(params) {
                     client_id: appId,
                     client_secret: appSecret,
                 }).toString(),
-            });
+            }, brand);
             data = (await resp.json());
         }
         catch (err) {

@@ -26,6 +26,7 @@ const lark_client_1 = require("../core/lark-client.js");
 const app_scope_checker_1 = require("../core/app-scope-checker.js");
 const lark_ticket_1 = require("../core/lark-ticket.js");
 const lark_logger_1 = require("../core/lark-logger.js");
+const feishu_fetch_1 = require("../core/feishu-fetch.js");
 const log = (0, lark_logger_1.larkLogger)('tools/oauth');
 const api_error_1 = require("../core/api-error.js");
 const device_flow_1 = require("../core/device-flow.js");
@@ -65,9 +66,9 @@ async function verifyTokenIdentity(brand, accessToken, expectedOpenId) {
     const domain = brand === 'lark' ? 'https://open.larksuite.com' : 'https://open.feishu.cn';
     const url = `${domain}/open-apis/authen/v1/user_info`;
     try {
-        const res = await fetch(url, {
+        const res = await (0, feishu_fetch_1.feishuFetch)(url, {
             headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        }, brand === 'lark' ? 'lark' : 'feishu');
         const data = (await res.json());
         if (data.code !== 0) {
             log.warn(`user_info API error: code=${data.code}, msg=${data.msg}`);

@@ -23,6 +23,7 @@ const lark_client_1 = require("../../core/lark-client.js");
 const accounts_1 = require("../../core/accounts.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
 const reactions_1 = require("./reactions.js");
+const pins_1 = require("./pins.js");
 const deliver_1 = require("./deliver.js");
 const media_1 = require("./media.js");
 const log = (0, lark_logger_1.larkLogger)('outbound/actions');
@@ -55,6 +56,9 @@ const SUPPORTED_ACTIONS = new Set([
     'reactions',
     'delete',
     'unsend',
+    'pin',
+    'unpin',
+    'list-pins',
     // "member-info",
 ]);
 // ---------------------------------------------------------------------------
@@ -160,6 +164,12 @@ exports.feishuMessageActions = {
                 case 'delete':
                 case 'unsend':
                     return await handleDelete(cfg, params, aid);
+                case 'pin':
+                    return await handlePin(cfg, params, aid);
+                case 'unpin':
+                    return await handleUnpin(cfg, params, aid);
+                case 'list-pins':
+                    return await handleListPins(cfg, params, aid);
                 default:
                     throw new Error(`Action "${action}" is not supported for Feishu. ` +
                         `Supported actions: ${Array.from(SUPPORTED_ACTIONS).join(', ')}.`);
@@ -326,4 +336,48 @@ async function handleDelete(cfg, params, accountId) {
     assertLarkOk(res, `delete message ${messageId}`);
     log.info(`delete: done, messageId=${messageId}`);
     return (0, sdk_compat_1.jsonResult)({ ok: true, messageId, deleted: true });
+}
+// ---------------------------------------------------------------------------
+// Pin handlers
+// ---------------------------------------------------------------------------
+async function handlePin(cfg, params, accountId) {
+    const messageId = (0, param_readers_1.readStringParam)(params, 'messageId', { required: true });
+    log.info(`pin: messageId=${messageId}`);
+    const pin = await (0, pins_1.createPinFeishu)({ cfg, messageId, accountId });
+    log.info(`pin: done, messageId=${messageId}`);
+    return (0, sdk_compat_1.jsonResult)({ ok: true, messageId, pin });
+}
+async function handleUnpin(cfg, params, accountId) {
+    const messageId = (0, param_readers_1.readStringParam)(params, 'messageId', { required: true });
+    log.info(`unpin: messageId=${messageId}`);
+    await (0, pins_1.removePinFeishu)({ cfg, messageId, accountId });
+    log.info(`unpin: done, messageId=${messageId}`);
+    return (0, sdk_compat_1.jsonResult)({ ok: true, messageId, unpinned: true });
+}
+async function handleListPins(cfg, params, accountId) {
+    const chatId = (0, param_readers_1.readStringParam)(params, 'chatId') ??
+        (0, param_readers_1.readStringParam)(params, 'channelId');
+    if (!chatId) {
+        throw new Error('Feishu list-pins requires chatId or channelId.');
+    }
+    const startTime = (0, param_readers_1.readStringParam)(params, 'startTime') ??
+        (0, param_readers_1.readStringParam)(params, 'start_time');
+    const endTime = (0, param_readers_1.readStringParam)(params, 'endTime') ??
+        (0, param_readers_1.readStringParam)(params, 'end_time');
+    const pageSize = (0, param_readers_1.readPositiveIntegerParam)(params, 'pageSize') ??
+        (0, param_readers_1.readPositiveIntegerParam)(params, 'page_size');
+    const pageToken = (0, param_readers_1.readStringParam)(params, 'pageToken') ??
+        (0, param_readers_1.readStringParam)(params, 'page_token');
+    log.info(`list-pins: chatId=${chatId}`);
+    const result = await (0, pins_1.listPinsFeishu)({
+        cfg,
+        chatId,
+        startTime,
+        endTime,
+        pageSize,
+        pageToken,
+        accountId,
+    });
+    log.info(`list-pins: ${result.pins.length} pin(s) in chat ${chatId}`);
+    return (0, sdk_compat_1.jsonResult)({ ok: true, ...result });
 }

@@ -74,7 +74,7 @@ async function rawLarkRequest(options) {
         method: options.method ?? 'GET',
         headers,
         ...(requestBody !== undefined ? { body: requestBody } : {}),
-    });
+    }, options.brand);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = (await resp.json());
     // 飞书 API 统一错误模式：code !== 0

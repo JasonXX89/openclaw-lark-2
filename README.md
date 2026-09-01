@@ -12,12 +12,16 @@
 - **工具调用动态展示**：流式卡片内实时展示 agent 正在调用的工具步骤（web_search → "Search web"、exec → "Run command"、memory search 等），默认开启，可用 `channels.feishu.toolUseDisplay.enabled: false` 关闭
 - **群聊流式卡片**：`channels.feishu.replyMode.group: "streaming"` 让群聊与私聊一样使用流式卡片（工具步骤 + ask_user 按钮）
 - **完整 footer 指标**：状态 · 耗时 · model · **provider** · tokens · cache · context（7 项，provider 为本分支新增）
+- **SSRF 防护**：所有出站 HTTP 请求（媒体/图片拉取、OAuth、MCP、裸 API 调用）统一走 OpenClaw SDK `fetchWithSsrFGuard`——DNS pinning 防 rebinding、IPv4+IPv6 私有/保留地址阻断、重定向逐跳校验、hostname 白名单门控
+- **PIN 消息操作**：内置 message 工具新增 `pin` / `unpin` / `list-pins` 动作，置顶/取消置顶/列出群内置顶消息
+- **测试基座**：vitest 最小测试套件（`npm test`），覆盖 config-schema、reply-mode、媒体 URL/路径安全、SSRF 防护、PIN 动作路由、ask_user 载荷安全
 - **多账号**：一个 openclaw 实例同时接入多个飞书应用
 
 ## 版本记录
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
+| **2026.9.3** | 2026-09-02 | SSRF 防护（全量出站请求走 SDK 守卫）、PIN 消息操作（pin/unpin/list-pins）、vitest 测试基座（9 文件 78 用例） |
 | **2026.9.2** | 2026-09-01 | 修复 ask_user "其他答案"提交（按钮 name 兜底，兼容 form_submit 剥离 value 的 SDK）；移除 feishu_ask_user_question；ask_user 群聊全员可交互；群聊流式卡片；工具 dry-run 脚本 |
 | **2026.9.1** | 2026-09-01 | OpenClaw 2.0 兼容修复、内置 ask_user 按钮渲染、工具动态展示、ClawHub 发布 |
 | **2026.8.1** | 2026-08-31 | 初始 2.0 适配分支 |
@@ -44,7 +48,7 @@ openclaw plugin install @mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.9.2.tgz
+openclaw plugins install openclaw-lark-2-2026.9.3.tgz
 ```
 
 ## 配置

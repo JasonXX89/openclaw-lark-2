@@ -60,7 +60,7 @@ function getPlatform() {
  *
  * @example
  * ```typescript
- * getUserAgent() // => "openclaw-lark-2/2026.9.2/mac"
+ * getUserAgent() // => "openclaw-lark-2/2026.9.3/mac"
  * ```
  */
 function getUserAgent() {

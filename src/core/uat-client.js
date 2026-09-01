@@ -54,7 +54,7 @@ async function doRefreshToken(opts, stored) {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: requestBody,
-        });
+        }, opts.domain);
         return (await resp.json());
     };
     let data = await callEndpoint();
