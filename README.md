@@ -1,92 +1,113 @@
 # openclaw-lark-2
 
-**OpenClaw 2.0（2026.8.1+）专属的飞书 / Lark 渠道插件** — 基于 `@larksuite/openclaw-lark` 的独立维护分支。
+**OpenClaw 2.0（2026.8.1+）专属飞书 / Lark 渠道插件** · An OpenClaw 2.0 (2026.8.1+) Feishu / Lark channel plugin — an independent fork of `@larksuite/openclaw-lark`.
 
-> OpenClaw 2.0（2026.8.1）重构了插件 SDK（移除了裸 `openclaw/plugin-sdk` 导出、重命名了多个子路径、session 存储从 JSON 迁移到 SQLite），官方 `@larksuite/openclaw-lark` 未跟进，导致在 2.0 下无法加载、卡片 footer 指标消失。本插件针对 2.0 SDK 全面适配，开箱即用。
+> **背景 / Background**
+>
+> OpenClaw 2.0（2026.8.1）重构了插件 SDK：移除了裸 `openclaw/plugin-sdk` 导出、重命名了多个子路径、session 存储从 JSON 迁移到 SQLite。官方 `@larksuite/openclaw-lark` 未跟进，导致在 2.0 下无法加载、卡片 footer 指标消失。本插件针对 2.0 SDK 全面适配，开箱即用。
+>
+> OpenClaw 2.0 (2026.8.1) reworked the plugin SDK: removed the bare `openclaw/plugin-sdk` export, renamed several subpaths, and migrated session storage from JSON to SQLite. The official `@larksuite/openclaw-lark` did not follow up, so it fails to load on 2.0 and loses card footer metrics. This plugin is fully adapted to the 2.0 SDK — plug and play.
 
-## 特性
+---
 
-- **OpenClaw 2.0 原生适配**：SDK 导入路径 / 类型 / 运行时 API 全部对齐 2026.8.1
-- **飞书 / Lark 全量能力**：IM 消息（含 CardKit 流式卡片）、文档（doc/wiki/drive）、多维表格（bitable）、日历、任务、多维表格、电子表格等
-- **内置 `ask_user` 工具按钮渲染**：OpenClaw 通用 `ask_user` 问题在飞书上渲染为带选项按钮的交互卡片，点击即解析；支持"其他答案"输入框表单；群聊中所有成员均可交互（不再依赖消息发送者）
-- **工具调用动态展示**：流式卡片内实时展示 agent 正在调用的工具步骤（web_search → "Search web"、exec → "Run command"、memory search 等），默认开启，可用 `channels.feishu.toolUseDisplay.enabled: false` 关闭
-- **群聊流式卡片**：`channels.feishu.replyMode.group: "streaming"` 让群聊与私聊一样使用流式卡片（工具步骤 + ask_user 按钮）
-- **完整 footer 指标**：状态 · 耗时 · model · **provider** · tokens · cache · context（7 项，provider 为本分支新增）
-- **SSRF 防护**：所有出站 HTTP 请求（媒体/图片拉取、OAuth、MCP、裸 API 调用）统一走 OpenClaw SDK `fetchWithSsrFGuard`——DNS pinning 防 rebinding、IPv4+IPv6 私有/保留地址阻断、重定向逐跳校验、hostname 白名单门控
-- **PIN 消息操作**：内置 message 工具新增 `pin` / `unpin` / `list-pins` 动作，置顶/取消置顶/列出群内置顶消息
-- **测试基座**：vitest 最小测试套件（`npm test`），覆盖 config-schema、reply-mode、媒体 URL/路径安全、SSRF 防护、PIN 动作路由、ask_user 载荷安全
-- **多账号**：一个 openclaw 实例同时接入多个飞书应用
+## 特性 / Features
 
-## 版本记录
+- **OpenClaw 2.0 原生适配**：SDK 导入路径 / 类型 / 运行时 API 全部对齐 2026.8.1 / Native 2.0 adaptation: SDK import paths, types, and runtime APIs aligned with 2026.8.1
+- **飞书 / Lark 全量能力**：IM 消息（含 CardKit 流式卡片）、文档（doc/wiki/drive）、多维表格（bitable）、日历、任务、电子表格等 / Full Feishu/Lark capabilities: IM messages (incl. CardKit streaming cards), docs (doc/wiki/drive), bitable, calendar, tasks, sheets, and more
+- **内置 `ask_user` 工具按钮渲染**：通用 `ask_user` 问题渲染为带选项按钮的交互卡片，点击即解析；支持"其他答案"输入框表单；群聊中所有成员均可交互 / Built-in `ask_user` button rendering: generic `ask_user` questions become interactive cards with option buttons; supports an "Other answer" input form; every group member can interact
+- **工具调用动态展示**：流式卡片内实时展示 agent 正在调用的工具步骤，默认开启（`channels.feishu.toolUseDisplay.enabled: false` 可关） / Live tool-activity display inside streaming cards, on by default (disable via `channels.feishu.toolUseDisplay.enabled: false`)
+- **群聊流式卡片**：`channels.feishu.replyMode.group: "streaming"` 让群聊与私聊一样使用流式卡片 / Group streaming cards: `channels.feishu.replyMode.group: "streaming"` gives groups the same streaming-card experience as DMs
+- **完整 footer 指标**：状态 · 耗时 · model · **provider** · tokens · cache · context（7 项，provider 为本分支新增）/ Full footer metrics: status · elapsed · model · **provider** · tokens · cache · context (7 items; `provider` is new in this fork)
+- **SSRF 防护**：所有出站 HTTP 请求统一走 SDK `fetchWithSsrFGuard`——DNS pinning 防 rebinding、IPv4+IPv6 私有/保留地址阻断、重定向逐跳校验、hostname 白名单 / SSRF protection: all outbound HTTP goes through the SDK `fetchWithSsrFGuard` — DNS pinning (anti-rebinding), IPv4+IPv6 private/reserved-address blocking, per-hop redirect validation, hostname allowlist
+- **PIN 消息操作**：内置 message 工具新增 `pin` / `unpin` / `list-pins` / PIN message actions: `pin` / `unpin` / `list-pins` on the built-in message tool
+- **测试基座**：vitest 最小测试套件（`npm test`） / Test base: a minimal vitest suite (`npm test`)
+- **多账号**：一个 openclaw 实例同时接入多个飞书应用 / Multi-account: run multiple Feishu apps on a single OpenClaw instance
 
-| 版本 | 日期 | 说明 |
+---
+
+## 版本记录 / Changelog
+
+| 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
-| **2026.9.3** | 2026-09-02 | SSRF 防护（全量出站请求走 SDK `fetchWithSsrFGuard`：DNS pinning、IPv4+IPv6 私网阻断、重定向逐跳校验、hostname 白名单）、PIN 消息操作（`pin`/`unpin`/`list-pins`）、vitest 测试基座（9 文件 78 用例，覆盖 SSRF/PIN/config/ask_user 载荷安全），并完成全量安全测试确认无攻击面 |
-| **2026.9.2** | 2026-09-01 | 修复 ask_user "其他答案"提交（按钮 name 兜底，兼容 form_submit 剥离 value 的 SDK）；移除 feishu_ask_user_question；ask_user 群聊全员可交互；群聊流式卡片；工具 dry-run 脚本 |
-| **2026.9.1** | 2026-09-01 | OpenClaw 2.0 兼容修复、内置 ask_user 按钮渲染、工具动态展示、ClawHub 发布 |
-| **2026.8.1** | 2026-08-31 | 初始 2.0 适配分支 |
+| **2026.9.3** | 2026-09-02 | SSRF 防护全量落地、PIN 消息操作、vitest 测试基座（9 文件 78 用例）+ 全量安全测试通过 / Full SSRF protection, PIN message actions, vitest test base (9 files / 78 tests) + complete security testing passed |
+| **2026.9.2** | 2026-09-01 | 修复 ask_user "其他答案"提交；移除 feishu_ask_user_question；群聊流式卡片；工具 dry-run 脚本 / Fix ask_user "Other" submit; remove feishu_ask_user_question; group streaming cards; tool dry-run script |
+| **2026.9.1** | 2026-09-01 | OpenClaw 2.0 兼容修复、内置 ask_user 按钮渲染、工具动态展示、ClawHub 发布 / OpenClaw 2.0 compat fixes, built-in ask_user buttons, tool-activity display, ClawHub release |
+| **2026.8.1** | 2026-08-31 | 初始 2.0 适配分支 / Initial 2.0 adaptation branch |
 
-## 三方详细对比
+---
+
+## 三方详细对比 / Three-Way Comparison
 
 本插件在设计上**取两家之长**：以字节 `@larksuite/openclaw-lark` 的完整工具面为基础，吸收官方 `@openclaw/feishu` 的 OpenClaw 2.0 原生架构与安全工程，再补齐两家的短板（ask_user 按钮、PIN、SSRF 全量防护、测试基座）。
 
-| 维度 | **openclaw-lark-2（本插件）** | **@openclaw/feishu（官方 2.0）** | **@larksuite/openclaw-lark 7.16（字节）** |
+This plugin takes the best of both worlds: the complete tool surface of ByteDance's `@larksuite/openclaw-lark`, the OpenClaw 2.0-native architecture and security engineering of the official `@openclaw/feishu`, plus features neither has (ask_user buttons, PIN, full SSRF coverage, a test base).
+
+| 维度 / Dimension | **openclaw-lark-2 (ours)** | **@openclaw/feishu (official 2.0)** | **@larksuite/openclaw-lark 7.16 (ByteDance)** |
 |---|---|---|---|
-| 版本 | **2026.9.3** | 2026.8.1 | 2026.7.16 |
-| OpenClaw 兼容 | **>=2026.8.1（2.0 原生）** | >=2026.8.1（2.0 原生） | >=2026.5.4（1.x，2.0 下无法加载） |
-| Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃） |
-| 契约工具数 | **38 个** | 14 个 | 39 个 |
-| calendar / task / sheets | ✅ 全有 | ❌ 无 | ✅ 全有 |
-| im 消息收发/搜索工具 | ✅ 6 个 | ❌（走 channel action） | ✅ 6 个 |
-| 入站消息转换器 | **22 种** | 部分 | 22 种 |
-| 流式回复（CardKit） | ✅（群聊/私聊均可） | ✅ | ✅（须开 `streaming:true`） |
-| 群聊流式卡片 | ✅ `replyMode.group:"streaming"` | ✅ | ❌ 群聊默认 static |
-| 工具动态展示 | ✅ **默认开启**（不依赖 verbose） | ⚠️ 仅 verbose/preview 开启时 | ⚠️ 依赖 verbose（默认 off） |
-| 内置 `ask_user` 按钮 | ✅ **按钮卡片 + "其他答案"输入框 + 群聊全员可交互** | ❌ 无（仅文本回退 + 自定义 ocf1 按钮） | ❌ 用自家 feishu_ask_user_question 表单 |
-| PIN 消息操作 | ✅ `pin` / `unpin` / `list-pins` | ✅ | ❌ |
-| SSRF 防护 | ✅ **全量出站请求**走 SDK 守卫（DNS pinning + 私网阻断 + 重定向校验 + hostname 白名单） | ✅（仅 CardKit/注册请求） | ⚠️ 手写 IPv4-only 检查 |
-| 输入中指示 | ✅ reaction 式 | ✅ reaction 式 | ✅ reaction 式 |
-| reactions / 文档评论 | ✅ | ✅ | ✅ |
+| 版本 / Version | **2026.9.3** | 2026.8.1 | 2026.7.16 |
+| OpenClaw 兼容 / Compat | **>=2026.8.1（2.0 原生）** | >=2026.8.1 (native 2.0) | >=2026.5.4（1.x，2.0 下无法加载 / cannot load on 2.0） |
+| Plugin API | 2.0 SDK（`runtime.config.current()`） | 2.0 SDK（`createChatChannelPlugin`） | 1.x API（`loadConfig`，已废弃 / deprecated） |
+| 契约工具数 / Contract tools | **38** | 14 | 39 |
+| calendar / task / sheets | ✅ | ❌ | ✅ |
+| im 消息收发 / 搜索工具 / IM send-read-search tools | ✅ 6 | ❌（走 channel action） | ✅ 6 |
+| 入站消息转换器 / Inbound converters | **22 种** | 部分 / partial | 22 种 |
+| 流式回复 / Streaming (CardKit) | ✅ 群聊 + 私聊 | ✅ | ✅ 须开 `streaming:true` |
+| 群聊流式卡片 / Group streaming | ✅ `replyMode.group:"streaming"` | ✅ | ❌ 群聊默认 static |
+| 工具动态展示 / Tool activity | ✅ **默认开启 / on by default** | ⚠️ 仅 verbose/preview | ⚠️ 依赖 verbose（默认 off） |
+| 内置 `ask_user` 按钮 | ✅ **按钮卡片 + "其他答案" + 群聊全员可交互** | ❌ 仅文本回退 / text fallback only | ❌ 用自家 feishu_ask_user_question |
+| PIN 消息操作 / PIN actions | ✅ `pin`/`unpin`/`list-pins` | ✅ | ❌ |
+| SSRF 防护 / SSRF protection | ✅ **全量出站 / all outbound**（DNS pinning + 私网阻断 + 重定向校验 + hostname 白名单） | ✅ 仅 CardKit/注册请求 | ⚠️ 手写 IPv4-only 检查 |
+| 输入中指示 / Typing indicator | ✅ reaction 式 | ✅ reaction 式 | ✅ reaction 式 |
+| reactions / 文档评论 / doc comments | ✅ | ✅ | ✅ |
 | OAuth device-flow | ✅ | ❌（仅 app 注册向导） | ✅ |
-| Webhook 双通道 | ❌（同字节，仅 WebSocket） | ✅ WS + webhook | ❌ |
-| 测试套件 | ✅ **vitest 基座（9 文件 / 78 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
-| 安全审计 | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF 防护 | ⚠️ 无 |
+| Webhook 双通道 / Dual-channel webhook | ❌ 仅 WebSocket | ✅ WS + webhook | ❌ |
+| 测试套件 / Test suite | ✅ **vitest 基座（9 文件 / 78 用例）** | ✅ 99 文件 / 1202 用例 | ❌ 无 |
+| 安全审计 / Security audit | ✅ plugin-inspector 报告 | ✅ security-audit + SSRF | ⚠️ 无 |
 
-### 取长补短的思路
+### 取长补短的思路 / Design Rationale
 
-1. **工具面 = 字节 7.16 全家桶**：38 个工具覆盖 im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth，这是官方 2.0 只有 14 个工具所不具备的（官方没有 calendar/task/sheets/im 消息工具）。唯一移除的是字节的自研 `feishu_ask_user_question`（已被内置 `ask_user` 按钮渲染取代）。
-2. **架构 = 官方 2.0 原生适配**：完整使用 OpenClaw 2.0 SDK（`plugin-sdk/core`、`channel-message`、`runtime.config.current()`），而字节 7.16 因用 `loadConfig` 在 2.0 下直接无法加载。
-3. **交互增强（两家都没有的）**：内置 `ask_user` 问题渲染成飞书按钮卡片（官方只做文本回退，字节用另一套非阻塞表单）；工具动态展示**默认开启**（两家都要手动开 verbose）；PIN 消息操作（字节没有）。
-4. **安全补强（取官方）**：把官方 2.0 的 `fetchWithSsrFGuard` 应用到**全部**出站请求（媒体/OAuth/MCP/裸 API），而官方只用于 CardKit 与 app 注册，字节只有手写 IPv4 检查。
+1. **工具面 = 字节 7.16 全家桶**：38 个工具覆盖 im / doc / wiki / drive / bitable / calendar / task / sheets / search / oauth，官方 2.0 只有 14 个（无 calendar/task/sheets/im 消息工具）。唯一移除的是字节自研 `feishu_ask_user_question`（已被内置 `ask_user` 按钮渲染取代）。
+   **Tool surface = ByteDance 7.16 full set**: 38 tools covering im/doc/wiki/drive/bitable/calendar/task/sheets/search/oauth; the official 2.0 has only 14 (no calendar/task/sheets/im-message tools). The only removal is ByteDance's custom `feishu_ask_user_question`, superseded by built-in `ask_user` button rendering.
+2. **架构 = 官方 2.0 原生适配**：完整使用 OpenClaw 2.0 SDK；字节 7.16 因用 `loadConfig` 在 2.0 下直接无法加载。
+   **Architecture = official 2.0-native**: full OpenClaw 2.0 SDK usage; ByteDance 7.16 cannot load on 2.0 because it uses `loadConfig`.
+3. **交互增强（两家都没有的）**：内置 `ask_user` 按钮卡片（官方只做文本回退，字节用另一套非阻塞表单）；工具动态展示默认开启（两家都要手动开 verbose）；PIN 消息操作（字节没有）。
+   **Interaction upgrades (neither has)**: built-in `ask_user` button cards; tool-activity display on by default; PIN message actions.
+4. **安全补强（取官方）**：把官方 2.0 的 `fetchWithSsrFGuard` 应用到**全部**出站请求，官方只用于 CardKit 与 app 注册，字节只有手写 IPv4 检查。
+   **Security hardening (from official)**: `fetchWithSsrFGuard` applied to **all** outbound requests; the official applies it only to CardKit/app registration, ByteDance has a hand-written IPv4-only check.
 5. **工程化补强（取官方）**：建立 vitest 测试基座（官方 1202 用例的质量目标，字节零测试），并保留 plugin-inspector 安全报告。
+   **Engineering (from official)**: a vitest test base (targeting the official's 1202-test quality bar; ByteDance has zero tests), plus the plugin-inspector security report.
 
-### 已知差异（如实说明）
+### 已知差异 / Known Differences (honest)
 
-| 项 | 说明 |
+| 项 / Item | 说明 / Note |
 |---|---|
-| Webhook 双通道 | 本插件暂未实现（同字节），仅 WebSocket；官方支持 WS + webhook |
-| pin 消息 | 本插件已支持；字节 7.16 无此能力 |
-| 测试规模 | 本插件为最小基座（78 用例），远小于官方（1202 用例），但覆盖核心安全与路由路径 |
-| 卡片/工具展示开关 | 本插件 `toolUseDisplay.enabled:false` 可关，默认开 |
+| Webhook 双通道 / Dual-channel webhook | 本插件暂未实现（同字节），仅 WebSocket；官方支持 WS + webhook / Not yet implemented (like ByteDance), WebSocket only; official supports WS + webhook |
+| PIN 消息 / PIN actions | 本插件已支持；字节 7.16 无 / Supported here; missing in ByteDance 7.16 |
+| 测试规模 / Test scale | 本插件为最小基座（78 用例），远小于官方（1202），但覆盖核心安全与路由路径 / Minimal base (78 tests), far smaller than official (1202), but covers core security & routing paths |
+| 工具展示开关 / Tool-display toggle | 本插件 `toolUseDisplay.enabled:false` 可关，默认开 / Toggle via `toolUseDisplay.enabled:false`, on by default |
 
-## 安装
+---
 
-### 通过 ClawHub
+## 安装 / Installation
+
+### 通过 ClawHub / via ClawHub
 
 ```bash
 openclaw plugin install @mirr0ch1/openclaw-lark-2
 ```
 
-### 通过 tarball（本机开发）
+### 通过 tarball（本机开发）/ via tarball (local dev)
 
 ```bash
 npm pack
 openclaw plugins install openclaw-lark-2-2026.9.3.tgz
 ```
 
-## 配置
+---
 
-插件注册 `feishu` 渠道，与官方版共用 `channels.feishu` 配置结构：
+## 配置 / Configuration
+
+插件注册 `feishu` 渠道，与官方版共用 `channels.feishu` 配置结构 / The plugin registers the `feishu` channel and shares the `channels.feishu` config shape with the official plugin:
 
 ```json5
 {
@@ -95,11 +116,11 @@ openclaw plugins install openclaw-lark-2-2026.9.3.tgz
       enabled: true,
       appId: "cli_xxx",
       appSecret: "xxx",
-      // 多账号示例
+      // 多账号示例 / multi-account example
       accounts: {
         plaud: { appId: "cli_yyy", appSecret: "yyy", dmPolicy: "pairing" },
       },
-      // footer 七项全开（provider 为新增项）
+      // footer 七项全开（provider 为新增项）/ all 7 footer metrics on (provider is new)
       footer: {
         status: true,
         elapsed: true,
@@ -117,18 +138,27 @@ openclaw plugins install openclaw-lark-2-2026.9.3.tgz
 }
 ```
 
-> 提示：飞书应用需要在开放平台开通 `cardkit:card:write` 权限，流式卡片才能生效。
+> 提示：飞书应用需在开放平台开通 `cardkit:card:write` 权限，流式卡片才能生效。
+> Tip: the Feishu app needs the `cardkit:card:write` scope enabled in the Open Platform for streaming cards to work.
 
-## 开发
+---
+
+## 开发 / Development
 
 ```bash
-npm install            # 安装依赖（含 vitest）
-npm test               # 运行 vitest 测试套件
-npm run test:watch     # 测试监听模式
+npm install            # 安装依赖（含 vitest）/ install deps (incl. vitest)
+npm test               # 运行 vitest 测试套件 / run the vitest test suite
+npm run test:watch     # 测试监听模式 / watch mode
 ```
 
-插件为 CommonJS 源码（`src/` + `index.js` 入口），无需构建步骤，改动后直接同步到 OpenClaw 扩展目录并重启网关即可生效。
+插件为 CommonJS 源码（`src/` + `index.js` 入口），无需构建步骤，改动后同步到 OpenClaw 扩展目录并重启网关即可生效。
 
-## 致谢 / 许可
+The plugin is CommonJS source (`src/` + `index.js` entry) with no build step — sync to the OpenClaw extensions directory and restart the gateway to apply changes.
+
+---
+
+## 致谢 / 许可 — Credits / License
 
 基于 [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark)（MIT）二次开发。保留 MIT 许可。
+
+Forked from [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) (MIT). MIT licensed.
