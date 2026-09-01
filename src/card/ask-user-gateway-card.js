@@ -161,7 +161,7 @@ function buildQuestionCard(questionText, options, customAllowed, questionId, ctx
                 },
                 {
                     tag: 'button',
-                    name: 'ask_user_custom_submit',
+                    name: `ask_user_custom_submit_${questionId}`,
                     text: {
                         tag: 'plain_text',
                         content: '📮 提交其他答案',
@@ -242,7 +242,21 @@ async function deliverAskUserQuestion(params) {
  */
 async function handleAskUserQuestionAction(data, cfg, accountId) {
     const event = data;
-    const envelope = decodeEnvelope(event?.action?.value);
+    const action = event?.action;
+    // Primary signal: the button `value` envelope.
+    let envelope = decodeEnvelope(action?.value);
+    // Feishu form_submit events may strip the button `value` (only the name is
+    // kept). Fall back to the submit button name which encodes the questionId.
+    const customSubmitPrefix = 'ask_user_custom_submit_';
+    const actionName = typeof action?.name === 'string' ? action.name : '';
+    if (!envelope && actionName.startsWith(customSubmitPrefix)) {
+        envelope = {
+            questionId: actionName.slice(customSubmitPrefix.length),
+            optionValue: CUSTOM_SUBMIT,
+            expectedChat: undefined,
+            expiresAt: undefined,
+        };
+    }
     if (!envelope)
         return undefined;
     const senderOpenId = (0, card_action_operator_1.resolveCardCallbackOperatorId)(event.operator);
@@ -260,7 +274,12 @@ async function handleAskUserQuestionAction(data, cfg, accountId) {
     }
     // ---- Custom answer submitted via the card's input form ----
     if (envelope.optionValue === CUSTOM_SUBMIT) {
-        const typed = event?.action?.form_value?.[CUSTOM_INPUT_FIELD];
+        const formValue = action?.form_value;
+        let typed = formValue && typeof formValue === 'object' ? formValue[CUSTOM_INPUT_FIELD] : undefined;
+        if (typeof typed !== 'string' || !typed.trim()) {
+            // Some SDK versions place form data directly on the action.
+            typed = action?.[CUSTOM_INPUT_FIELD];
+        }
         if (typeof typed !== 'string' || !typed.trim()) {
             return { toast: { type: 'warning', content: '请先在输入框填写你的答案' } };
         }

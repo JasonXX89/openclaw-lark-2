@@ -18,6 +18,7 @@
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
+| **2026.9.1-3** | 2026-09-01 | 修复 ask_user "其他答案"提交（按钮 name 兜底，兼容 form_submit 剥离 value 的 SDK）；新增工具 dry-run 检查脚本 scripts/check-tools.js |
 | **2026.9.1-2** | 2026-09-01 | 移除 `feishu_ask_user_question` 专用工具（统一用内置 `ask_user`）；ask_user 支持"其他答案"输入框、群聊全员可交互 |
 | **2026.9.1-1** | 2026-09-01 | 内置 `ask_user` 工具按钮渲染（选项按钮卡片 + 回调解析）；群聊启用流式卡片 |
 | **2026.9.1** | 2026-09-01 | OpenClaw 2.0 兼容修复、ClawHub 发布、正式安装流程 |
@@ -45,7 +46,7 @@ openclaw plugin install @mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.9.1-2.tgz
+openclaw plugins install openclaw-lark-2-2026.9.1-3.tgz
 ```
 
 ## 配置
