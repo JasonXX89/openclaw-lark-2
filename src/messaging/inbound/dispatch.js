@@ -213,6 +213,7 @@ async function dispatchNormalMessage(dc, ctxPayload, routing, chatHistories, his
         replyInThread: routing.replyInThread,
         threadId: routing.threadId,
         toolUseDisplay,
+        senderOpenId: dc.ctx.senderId,
     });
     // Create an AbortController so the abort fast-path can cancel the
     // underlying LLM request (not just the streaming card UI).

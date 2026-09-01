@@ -26,6 +26,7 @@ const builder_1 = require("./builder.js");
 const card_error_1 = require("./card-error.js");
 const reply_mode_1 = require("./reply-mode.js");
 const streaming_card_controller_1 = require("./streaming-card-controller.js");
+const ask_user_gateway_card_1 = require("./ask-user-gateway-card.js");
 const unavailable_guard_1 = require("./unavailable-guard.js");
 const log = (0, lark_logger_1.larkLogger)('card/reply-dispatcher');
 // ---------------------------------------------------------------------------
@@ -179,6 +180,22 @@ function createFeishuReplyDispatcher(params) {
             });
             if (shouldSkip('deliver.entry'))
                 return;
+            // ---- Gateway ask_user question ----
+            // Render the question as an interactive button card instead of the
+            // plain text (which previously blocked the run with no way to answer).
+            if ((0, ask_user_gateway_card_1.isAskUserPayload)(payload)) {
+                const consumed = await (0, ask_user_gateway_card_1.deliverAskUserQuestion)({
+                    cfg,
+                    chatId,
+                    replyToMessageId,
+                    replyInThread,
+                    accountId,
+                    payload,
+                    senderOpenId: params.senderOpenId,
+                });
+                if (consumed)
+                    return;
+            }
             // ---- Abort guard ----
             // Only check aborted (not isTerminalPhase) so that
             // creation_failed can still fallthrough to static delivery.
