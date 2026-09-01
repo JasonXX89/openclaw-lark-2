@@ -8,8 +8,7 @@
 
 - **OpenClaw 2.0 原生适配**：SDK 导入路径 / 类型 / 运行时 API 全部对齐 2026.8.1
 - **飞书 / Lark 全量能力**：IM 消息（含 CardKit 流式卡片）、文档（doc/wiki/drive）、多维表格（bitable）、日历、任务、审批等
-- **AskUser 卡片交互**：`feishu_ask_user_question` 交互式提问（表单卡片 + 合成消息注入）
-- **内置 `ask_user` 工具按钮渲染**：OpenClaw 通用 `ask_user` 问题在飞书上渲染为带选项按钮的交互卡片，点击即解析（不再"卡死"）；文本回答兜底由网关自动接管
+- **内置 `ask_user` 工具按钮渲染**：OpenClaw 通用 `ask_user` 问题在飞书上渲染为带选项按钮的交互卡片，点击即解析；支持"其他答案"输入框表单；群聊中所有成员均可交互（不再依赖消息发送者）
 - **工具调用动态展示**：流式卡片内实时展示 agent 正在调用的工具步骤（web_search → "Search web"、exec → "Run command"、memory search 等），默认开启，可用 `channels.feishu.toolUseDisplay.enabled: false` 关闭
 - **群聊流式卡片**：`channels.feishu.replyMode.group: "streaming"` 让群聊与私聊一样使用流式卡片（工具步骤 + ask_user 按钮）
 - **完整 footer 指标**：状态 · 耗时 · model · **provider** · tokens · cache · context（7 项，provider 为本分支新增）
@@ -19,6 +18,7 @@
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
+| **2026.9.1-2** | 2026-09-01 | 移除 `feishu_ask_user_question` 专用工具（统一用内置 `ask_user`）；ask_user 支持"其他答案"输入框、群聊全员可交互 |
 | **2026.9.1-1** | 2026-09-01 | 内置 `ask_user` 工具按钮渲染（选项按钮卡片 + 回调解析）；群聊启用流式卡片 |
 | **2026.9.1** | 2026-09-01 | OpenClaw 2.0 兼容修复、ClawHub 发布、正式安装流程 |
 | **2026.8.1** | 2026-08-31 | 初始 2.0 适配分支 |
@@ -45,7 +45,7 @@ openclaw plugin install @mirr0ch1/openclaw-lark-2
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.9.1-1.tgz
+openclaw plugins install openclaw-lark-2-2026.9.1-2.tgz
 ```
 
 ## 配置
