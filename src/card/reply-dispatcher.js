@@ -68,7 +68,10 @@ function createFeishuReplyDispatcher(params) {
     const textChunkLimit = core.channel.text.resolveTextChunkLimit(cfg, 'feishu', accountId, { fallbackLimit: 4000 });
     const chunkMode = core.channel.text.resolveChunkMode(cfg, 'feishu');
     // ---- Streaming card controller (instantiated only when needed) ----
-    const controller = useStreamingCards
+    // 流式模式：完整流式卡片；静态模式（群聊）：仅工具活动卡（activityOnly），
+    // 展示 agent 正在调用的工具，最终回复仍走静态 deliver()。
+    const enableToolActivity = Boolean(toolUseDisplay?.showToolUse);
+    const controller = useStreamingCards || enableToolActivity
         ? new streaming_card_controller_1.StreamingCardController({
             cfg,
             agentId,
@@ -79,6 +82,7 @@ function createFeishuReplyDispatcher(params) {
             replyInThread,
             toolUseDisplay,
             resolvedFooter,
+            activityOnly: !useStreamingCards,
         })
         : null;
     // ---- Static mode unavailable guard ----
@@ -205,21 +209,25 @@ function createFeishuReplyDispatcher(params) {
                     await controller.onToolPayload(payload);
                     return;
                 }
-                const controllerText = reasoningText.trim() ? reasoningText : text;
-                if (controllerText.trim()) {
-                    await controller.ensureCardCreated();
-                    if (controller.isTerminated)
-                        return;
-                    if (controller.cardMessageId) {
-                        if (payload.isReasoning === true) {
-                            await controller.onReasoningStream({ ...payload, text: controllerText });
+                // 静态模式（activityOnly）：文本/推理由下方静态 deliver 发送，
+                // 卡片仅用于展示工具活动，不能把最终回复吞进卡片。
+                if (!controller.activityOnly) {
+                    const controllerText = reasoningText.trim() ? reasoningText : text;
+                    if (controllerText.trim()) {
+                        await controller.ensureCardCreated();
+                        if (controller.isTerminated)
+                            return;
+                        if (controller.cardMessageId) {
+                            if (payload.isReasoning === true) {
+                                await controller.onReasoningStream({ ...payload, text: controllerText });
+                                return;
+                            }
+                            await controller.onDeliver({ ...payload, text: controllerText });
                             return;
                         }
-                        await controller.onDeliver({ ...payload, text: controllerText });
-                        return;
+                        // Card creation failed — fall through to static delivery
+                        log.warn('deliver: card creation failed, falling back to static delivery');
                     }
-                    // Card creation failed — fall through to static delivery
-                    log.warn('deliver: card creation failed, falling back to static delivery');
                 }
             }
             // ---- Static text delivery ----
@@ -390,6 +398,9 @@ function createFeishuReplyDispatcher(params) {
                 ? {
                     shouldEmitToolResult: () => false,
                     shouldEmitToolOutput: () => false,
+                    // 让工具生命周期回调（onToolStart）在 verbose 关闭时也触发，
+                    // 这样工具动态展示不再依赖全局 verbose 开关。
+                    allowToolLifecycleWhenProgressHidden: true,
                 }
                 : {}),
             onModelSelected: (ctx) => {

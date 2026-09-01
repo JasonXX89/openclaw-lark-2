@@ -98,6 +98,7 @@ export declare class StreamingCardController {
     markFullyComplete(): void;
     abortCard(): Promise<void>;
     ensureCardCreated(): Promise<void>;
+    private deleteActivityCard;
     private performFlush;
     private buildDisplayText;
     private throttledCardUpdate;

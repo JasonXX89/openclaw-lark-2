@@ -215,6 +215,15 @@ class StreamingCardController {
     get shouldDisplayToolUse() {
         return this.deps.toolUseDisplay.showToolUse;
     }
+    /**
+     * Activity-only mode (static/group replies): the controller drives a
+     * lightweight tool-activity card only — text/reasoning streaming is
+     * handled by the static deliver() path, so those callbacks are no-ops
+     * and the card is removed once the final reply is delivered.
+     */
+    get activityOnly() {
+        return this.deps.activityOnly === true;
+    }
     computeToolUseDisplay() {
         if (!this.shouldDisplayToolUse)
             return null;
@@ -311,6 +320,8 @@ class StreamingCardController {
     async onDeliver(payload) {
         if (!this.shouldProceed('onDeliver'))
             return;
+        if (this.activityOnly)
+            return;
         const text = payload.text ?? '';
         if (!text.trim())
             return;
@@ -349,6 +360,8 @@ class StreamingCardController {
     async onReasoningStream(payload) {
         if (!this.shouldProceed('onReasoningStream'))
             return;
+        if (this.activityOnly)
+            return;
         await this.ensureCardCreated();
         if (!this.shouldProceed('onReasoningStream.postCreate'))
             return;
@@ -370,14 +383,48 @@ class StreamingCardController {
             return;
         if (!this.shouldDisplayToolUse)
             return;
-        if (payload.phase && payload.phase !== 'start')
+        const phase = payload.phase ?? 'start';
+        // 把工具生命周期写入 trace store，卡片才能渲染出"正在调用什么工具"的步骤。
+        if (phase === 'start') {
+            (0, tool_use_trace_store_1.recordToolUseStart)({
+                sessionKey: this.deps.sessionKey,
+                toolName: payload.name,
+                toolParams: payload.args,
+                toolCallId: payload.toolCallId,
+            });
+        }
+        else if (phase === 'end' || phase === 'error' || phase === 'result') {
+            (0, tool_use_trace_store_1.recordToolUseEnd)({
+                sessionKey: this.deps.sessionKey,
+                toolName: payload.name,
+                toolParams: payload.args,
+                toolCallId: payload.toolCallId,
+                error: phase === 'error' ? 'tool failed' : undefined,
+            });
+        }
+        else {
             return;
-        this.markToolUseActivity();
+        }
+        if (phase === 'start') {
+            this.markToolUseActivity();
+        }
+        else {
+            this.captureToolUseElapsed();
+        }
         await this.ensureCardCreated();
         if (!this.shouldProceed('onToolStart.postCreate'))
             return;
         if (!this.cardKit.cardMessageId)
             return;
+        if (this.activityOnly) {
+            if (this.cardKit.cardKitCardId) {
+                await this.throttledToolUseStatusUpdate();
+            }
+            else {
+                await this.throttledCardUpdate();
+            }
+            return;
+        }
         if (!this.text.accumulatedText && this.cardKit.cardKitCardId) {
             await this.throttledToolUseStatusUpdate();
             return;
@@ -395,6 +442,15 @@ class StreamingCardController {
             return;
         if (!this.cardKit.cardMessageId)
             return;
+        if (this.activityOnly) {
+            if (this.cardKit.cardKitCardId) {
+                await this.throttledToolUseStatusUpdate();
+            }
+            else {
+                await this.throttledCardUpdate();
+            }
+            return;
+        }
         if (!this.text.accumulatedText && this.cardKit.cardKitCardId) {
             await this.throttledToolUseStatusUpdate();
             return;
@@ -403,6 +459,8 @@ class StreamingCardController {
     }
     async onPartialReply(payload) {
         if (!this.shouldProceed('onPartialReply'))
+            return;
+        if (this.activityOnly)
             return;
         // Use splitReasoningText (consistent with onDeliver/onReasoningStream)
         // to extract <think> tag content before stripping it from the answer.
@@ -453,6 +511,10 @@ class StreamingCardController {
         if (this.guard.terminate('onError', err))
             return;
         log.error(`${info.kind} reply failed`, { error: String(err) });
+        if (this.activityOnly) {
+            await this.deleteActivityCard('onError');
+            return;
+        }
         this.captureToolUseElapsed();
         this.finalizeCard('onError', 'error');
         await this.flush.waitForFlush();
@@ -511,6 +573,11 @@ class StreamingCardController {
         if (this.isTerminalPhase)
             return;
         this.captureToolUseElapsed();
+        if (this.activityOnly) {
+            // 静态模式：最终回复已通过 deliver() 单独发送，删除活动卡即可。
+            await this.deleteActivityCard('onIdle');
+            return;
+        }
         this.finalizeCard('onIdle', 'normal');
         await this.flush.waitForFlush();
         if (this.cardCreationPromise) {
@@ -607,8 +674,38 @@ class StreamingCardController {
         });
         this.dispatchFullyComplete = true;
     }
+    /**
+     * Activity-only mode terminal: remove the tool-activity card.
+     *
+     * The final reply is delivered as a separate static message, so the
+     * ephemeral activity card must be deleted rather than finalized into
+     * the answer. Failure to delete (e.g. permission) is non-fatal.
+     */
+    async deleteActivityCard(source) {
+        try {
+            if (this.cardKit.cardMessageId) {
+                await (0, send_1.deleteMessageFeishu)({
+                    cfg: this.deps.cfg,
+                    messageId: this.cardKit.cardMessageId,
+                    accountId: this.deps.accountId,
+                });
+                log.info('activity card removed', { source, messageId: this.cardKit.cardMessageId });
+            }
+        }
+        catch (err) {
+            log.warn('activity card delete failed', { source, error: String(err) });
+        }
+        finally {
+            this.transition('completed', 'deleteActivityCard', source);
+            (0, tool_use_trace_store_1.clearToolUseTraceRun)(this.deps.sessionKey);
+        }
+    }
     async abortCard() {
         try {
+            if (this.activityOnly) {
+                await this.deleteActivityCard('abortCard');
+                return;
+            }
             this.captureToolUseElapsed();
             if (!this.transition('aborted', 'abortCard', 'abort'))
                 return;

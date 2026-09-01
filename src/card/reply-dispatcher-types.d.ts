@@ -129,4 +129,6 @@ export interface StreamingCardDeps {
     replyInThread: boolean | undefined;
     toolUseDisplay: ToolUseDisplayConfig;
     resolvedFooter: Required<FeishuFooterConfig>;
+    /** Static (group) mode: drive only the tool-activity card, no text streaming. */
+    activityOnly?: boolean;
 }

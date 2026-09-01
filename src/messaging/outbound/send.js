@@ -13,6 +13,7 @@ exports.buildMarkdownCard = buildMarkdownCard;
 exports.buildI18nMarkdownCard = buildI18nMarkdownCard;
 exports.sendMarkdownCardFeishu = sendMarkdownCardFeishu;
 exports.editMessageFeishu = editMessageFeishu;
+exports.deleteMessageFeishu = deleteMessageFeishu;
 const accounts_1 = require("../../core/accounts.js");
 const lark_client_1 = require("../../core/lark-client.js");
 const lark_logger_1 = require("../../core/lark-logger.js");
@@ -411,6 +412,30 @@ async function editMessageFeishu(params) {
             data: {
                 content: contentPayload,
                 msg_type: 'post',
+            },
+        }),
+    });
+}
+// ---------------------------------------------------------------------------
+// deleteMessageFeishu
+// ---------------------------------------------------------------------------
+/**
+ * Delete a bot-sent Feishu message (used to remove ephemeral tool-activity
+ * cards once the static-mode final reply is delivered).
+ *
+ * @param params.cfg       - Plugin configuration.
+ * @param params.messageId - The message ID to delete.
+ * @param params.accountId - Optional account identifier.
+ */
+async function deleteMessageFeishu(params) {
+    const { cfg, messageId, accountId } = params;
+    const client = lark_client_1.LarkClient.fromCfg(cfg, accountId).sdk;
+    await (0, message_unavailable_1.runWithMessageUnavailableGuard)({
+        messageId,
+        operation: 'im.message.delete',
+        fn: () => client.im.message.delete({
+            path: {
+                message_id: messageId,
             },
         }),
     });

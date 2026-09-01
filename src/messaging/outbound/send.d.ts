@@ -151,3 +151,17 @@ export declare function editMessageFeishu(params: {
     text: string;
     accountId?: string;
 }): Promise<void>;
+/**
+ * Deletes a bot-sent message via the IM message delete API. Used to
+ * remove ephemeral tool-activity cards once a static-mode final reply
+ * is delivered.
+ *
+ * @param params.cfg       - Plugin configuration.
+ * @param params.messageId - The message ID to delete.
+ * @param params.accountId - Optional account identifier.
+ */
+export declare function deleteMessageFeishu(params: {
+    cfg: ClawdbotConfig;
+    messageId: string;
+    accountId?: string;
+}): Promise<void>;

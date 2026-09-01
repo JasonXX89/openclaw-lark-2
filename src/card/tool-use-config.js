@@ -15,9 +15,13 @@ const agent_runtime_1 = require("openclaw/plugin-sdk/agent-runtime");
 const config_runtime_1 = require("openclaw/plugin-sdk/config-runtime");
 function resolveToolUseDisplayConfig(params) {
     const mode = resolveEffectiveVerboseMode(params);
+    // 默认开启工具动态展示：只有显式关闭（verbose off / toolUseDisplay.enabled=false）才隐藏。
+    // mode === undefined 表示 verbose 从未配置，视为开启（卡片内展示，不产生独立文本消息）。
+    const feishuEnabled = params.feishuCfg?.toolUseDisplay?.enabled;
+    const showToolUse = feishuEnabled === false ? false : mode !== 'off';
     return {
-        mode,
-        showToolUse: mode !== 'off',
+        mode: mode ?? 'off',
+        showToolUse,
         showToolResultDetails: mode === 'full',
         showFullPaths: params.feishuCfg?.toolUseDisplay?.showFullPaths === true,
     };
@@ -25,8 +29,7 @@ function resolveToolUseDisplayConfig(params) {
 function resolveEffectiveVerboseMode(params) {
     return (extractInlineVerboseMode(params.body) ??
         resolveSessionVerboseMode(params.cfg, params.sessionKey, params.agentId) ??
-        normalizeToolUseMode(params.cfg.agents?.defaults?.verboseDefault) ??
-        'off');
+        normalizeToolUseMode(params.cfg.agents?.defaults?.verboseDefault));
 }
 function resolveSessionVerboseMode(cfg, sessionKey, agentId) {
     try {
