@@ -60,7 +60,6 @@ const dedup_1 = require("../messaging/inbound/dedup.js");
 const lark_ticket_1 = require("../core/lark-ticket.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const auto_auth_1 = require("../tools/auto-auth.js");
-const ask_user_question_1 = require("../tools/ask-user-question.js");
 const ask_user_gateway_card_1 = require("../card/ask-user-gateway-card.js");
 const synthetic_message_1 = require("../messaging/inbound/synthetic-message.js");
 const chat_info_cache_1 = require("../core/chat-info-cache.js");
@@ -497,10 +496,6 @@ async function handleCardActionEvent(ctx, data) {
         const injectResult = handleInjectPromptAction(ctx, data);
         if (injectResult !== undefined)
             return injectResult;
-        // AskUserQuestion：表单卡片交互（宿主内建能力优先）
-        const askResult = (0, ask_user_question_1.handleAskUserAction)(data, ctx.cfg, ctx.accountId);
-        if (askResult !== undefined)
-            return askResult;
         // Gateway ask_user：内置 ask_user 工具的选项按钮卡片
         const askGatewayResult = await (0, ask_user_gateway_card_1.handleAskUserQuestionAction)(data, ctx.cfg, ctx.accountId);
         if (askGatewayResult !== undefined)

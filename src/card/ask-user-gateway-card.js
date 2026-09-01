@@ -40,7 +40,8 @@ const log = (0, lark_logger_1.larkLogger)('card/ask-user-gateway');
 const CARD_SCHEMA = '2.0';
 const ENVELOPE_VERSION = 1;
 const ACTION_KIND = 'ask_user';
-const CUSTOM_OPTION = '__custom__';
+const CUSTOM_SUBMIT = '__custom_submit__';
+const CUSTOM_INPUT_FIELD = 'custom_answer';
 const QUESTION_TTL_MS = 15 * 60 * 1000;
 const V2_CONFIG = { wide_screen_mode: true, update_multi: true, locales: ['zh_cn', 'en_us'] };
 // ---------------------------------------------------------------------------
@@ -141,12 +142,37 @@ function buildQuestionCard(questionText, options, customAllowed, questionId, ctx
     if (customAllowed) {
         elements.push({ tag: 'hr' });
         elements.push({
-            tag: 'button',
-            text: { tag: 'plain_text', content: '✏️ 输入其他答案', i18n_content: { zh_cn: '✏️ 输入其他答案', en_us: '✏️ Other answer' } },
-            type: 'default',
-            value: buildEnvelope(questionId, CUSTOM_OPTION, ctx),
+            tag: 'markdown',
+            content: '**其他答案**',
+            text_size: 'notation',
         });
-        elements.push({ tag: 'markdown', content: '点击后请直接回复文本作为你的答案。', text_size: 'notation' });
+        elements.push({
+            tag: 'form',
+            name: 'ask_user_custom_form',
+            elements: [
+                {
+                    tag: 'input',
+                    name: CUSTOM_INPUT_FIELD,
+                    placeholder: {
+                        tag: 'plain_text',
+                        content: '输入你自己的答案…',
+                        i18n_content: { zh_cn: '输入你自己的答案…', en_us: 'Type your own answer…' },
+                    },
+                },
+                {
+                    tag: 'button',
+                    name: 'ask_user_custom_submit',
+                    text: {
+                        tag: 'plain_text',
+                        content: '📮 提交其他答案',
+                        i18n_content: { zh_cn: '📮 提交其他答案', en_us: '📮 Submit answer' },
+                    },
+                    type: 'default',
+                    value: buildEnvelope(questionId, CUSTOM_SUBMIT, ctx),
+                    form_action_type: 'submit',
+                },
+            ],
+        });
     }
     return {
         schema: CARD_SCHEMA,
@@ -222,35 +248,56 @@ async function handleAskUserQuestionAction(data, cfg, accountId) {
     const senderOpenId = (0, card_action_operator_1.resolveCardCallbackOperatorId)(event.operator);
     const chatId = event.open_chat_id ?? event.context?.open_chat_id;
     const messageId = event.open_message_id ?? event.context?.open_message_id;
-    log.info(`ask-user action received: q=${envelope.questionId}, custom=${envelope.optionValue === CUSTOM_OPTION}, chat=${chatId}, sender=${senderOpenId}`);
+    log.info(`ask-user action received: q=${envelope.questionId}, custom=${envelope.optionValue === CUSTOM_SUBMIT}, chat=${chatId}, sender=${senderOpenId}`);
     // ---- Validate envelope context ----
-    if (envelope.expectedUser && senderOpenId && envelope.expectedUser !== senderOpenId) {
-        return { toast: { type: 'warning', content: '只有被提问的用户可以回答此问题' } };
-    }
+    // 注意：不做 expectedUser 强校验——群聊里 agent 可能把问题发给消息发送者之外的成员
+    // （例如米罗提问、agent 却 @ 陈宣羽），绑定消息发送者会错误地拒绝其他群成员。
     if (envelope.expectedChat && chatId && envelope.expectedChat !== chatId) {
         return { toast: { type: 'warning', content: '该卡片不属于当前会话' } };
     }
     if (envelope.expiresAt != null && envelope.expiresAt < Date.now()) {
         return { toast: { type: 'info', content: '该问题已过期' } };
     }
-    // ---- Resolve (async; Feishu card callbacks must return within ~3s) ----
-    // Fire-and-forget resolution then return an optimistic toast. Duplicate
-    // clicks are idempotent (resolveOption reports already-terminal).
-    setImmediate(async () => {
-        try {
-            if (envelope.optionValue === CUSTOM_OPTION) {
+    // ---- Custom answer submitted via the card's input form ----
+    if (envelope.optionValue === CUSTOM_SUBMIT) {
+        const typed = event?.action?.form_value?.[CUSTOM_INPUT_FIELD];
+        if (typeof typed !== 'string' || !typed.trim()) {
+            return { toast: { type: 'warning', content: '请先在输入框填写你的答案' } };
+        }
+        const answer = typed.trim();
+        setImmediate(async () => {
+            try {
                 const result = await question_gateway_runtime_1.questionGatewayRuntime.resolveOption({
                     cfg,
                     questionId: envelope.questionId,
-                    customInput: true,
+                    optionValue: answer,
                     senderId: senderOpenId,
                     clientDisplayName: 'Feishu question',
                 });
-                if (result.status === 'custom-input') {
-                    log.info(`ask-user custom-input validated q=${envelope.questionId}`);
+                log.info(`ask-user custom answer resolved q=${envelope.questionId} status=${result.status}`);
+                if (result.status === 'answered' && messageId) {
+                    try {
+                        await (0, send_1.updateCardFeishu)({
+                            cfg,
+                            messageId,
+                            card: buildAnsweredCard(answer),
+                            accountId,
+                        });
+                    }
+                    catch (updateErr) {
+                        log.warn(`ask-user card answered update failed: ${String(updateErr)}`);
+                    }
                 }
-                return;
             }
+            catch (err) {
+                log.warn(`ask-user custom resolve failed q=${envelope.questionId}: ${String(err)}`);
+            }
+        });
+        return { toast: { type: 'success', content: '已收到你的回答，正在继续处理…' } };
+    }
+    // ---- Option button clicked ----
+    setImmediate(async () => {
+        try {
             const result = await question_gateway_runtime_1.questionGatewayRuntime.resolveOption({
                 cfg,
                 questionId: envelope.questionId,

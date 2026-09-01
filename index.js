@@ -17,7 +17,6 @@ const index_1 = require("./src/tools/oapi/index.js");
 const index_2 = require("./src/tools/mcp/doc/index.js");
 const oauth_1 = require("./src/tools/oauth.js");
 const oauth_batch_auth_1 = require("./src/tools/oauth-batch-auth.js");
-const ask_user_question_1 = require("./src/tools/ask-user-question.js");
 const diagnose_1 = require("./src/commands/diagnose.js");
 const index_3 = require("./src/commands/index.js");
 const lark_logger_1 = require("./src/core/lark-logger.js");
@@ -105,8 +104,6 @@ const plugin = {
         (0, oauth_1.registerFeishuOAuthTool)(api);
         // Register OAuth batch auth tool (batch authorization for all app scopes)
         (0, oauth_batch_auth_1.registerFeishuOAuthBatchAuthTool)(api);
-        // Register AskUserQuestion tool (interactive card-based user prompting)
-        (0, ask_user_question_1.registerAskUserQuestionTool)(api);
         api.on('before_tool_call', (event, ctx) => {
             (0, tool_use_trace_store_1.recordToolUseStart)({
                 sessionKey: ctx.sessionKey,
