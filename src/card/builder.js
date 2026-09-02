@@ -356,7 +356,7 @@ function buildCompleteCard(params) {
     const hasTools = showToolUse && Boolean(toolUseSteps?.length);
     if (hasReasoning || hasTools) {
         const model = footerMetrics?.model?.trim() ?? '';
-        const headerParts = ['🍟'];
+        const headerParts = ['🤖'];
         if (model)
             headerParts.push(model);
         if (hasReasoning)
