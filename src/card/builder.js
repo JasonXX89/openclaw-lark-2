@@ -194,8 +194,8 @@ function formatFooterRuntimeSegments(params) {
     }
     if (footer?.elapsed && elapsedMs != null) {
         const d = formatElapsed(elapsedMs);
-        primaryZh.push(`⏱️ 耗时 ${d}`);
-        primaryEn.push(`⏱️ Elapsed ${d}`);
+        primaryZh.push(`⏱️ ${d}`);
+        primaryEn.push(`⏱️ ${d}`);
     }
     if (footer?.model && metrics?.model) {
         const model = metrics.model.trim();
@@ -231,8 +231,8 @@ function formatFooterRuntimeSegments(params) {
             const hit = total > 0 ? Math.round((read / total) * 100) : 0;
             const left = compactNumber(read);
             const right = compactNumber(write);
-            detailZh.push(`📦 缓存 ${left}/${right} (${hit}%)`);
-            detailEn.push(`📦 Cache ${left}/${right} (${hit}%)`);
+            detailZh.push(`📦 ${left}/${right} (${hit}%)`);
+            detailEn.push(`📦 ${left}/${right} (${hit}%)`);
         }
     }
     if (footer?.context && metrics) {
@@ -244,8 +244,8 @@ function formatFooterRuntimeSegments(params) {
             const ctxLabel = compactNumber(ctx);
             const pct = ctx > 0 ? Math.round((total / ctx) * 100) : 0;
             const pctLabel = `${pct}%`;
-            detailZh.push(`📊 上下文 ${totalLabel}/${ctxLabel} (${pctLabel})`);
-            detailEn.push(`📊 Context ${totalLabel}/${ctxLabel} (${pctLabel})`);
+            detailZh.push(`📊 ${totalLabel}/${ctxLabel} (${pctLabel})`);
+            detailEn.push(`📊 ${totalLabel}/${ctxLabel} (${pctLabel})`);
         }
     }
     return { primaryZh, primaryEn, detailZh, detailEn };
@@ -413,7 +413,7 @@ function buildCompleteCard(params) {
                 titleParts.push(detailFiltered.join(' · '));
             }
         }
-        const headerText = [headerParts.join(' · '), ...titleParts].filter(Boolean).join(' | ');
+        const headerText = [headerParts.join(' · '), ...titleParts].filter(Boolean).join(' · ');
         const unifiedChildren = [];
         if (hasReasoning) {
             unifiedChildren.push({
