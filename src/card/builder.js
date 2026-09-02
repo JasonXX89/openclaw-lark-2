@@ -388,6 +388,27 @@ function buildCompleteCard(params) {
         if (hasTools) {
             unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
         }
+        // footer 信息并入统一面板内部（思考/工具之后）
+        const fpInner = formatFooterRuntimeSegments({
+            footer,
+            metrics: footerMetrics,
+            elapsedMs,
+            isError,
+            isAborted,
+        });
+        const innerZhLines = [];
+        const innerEnLines = [];
+        if (fpInner.primaryZh.length > 0) {
+            innerZhLines.push(fpInner.primaryZh.join(' · '));
+            innerEnLines.push(fpInner.primaryEn.join(' · '));
+        }
+        if (fpInner.detailZh.length > 0) {
+            innerZhLines.push(fpInner.detailZh.join(' · '));
+            innerEnLines.push(fpInner.detailEn.join(' · '));
+        }
+        if (innerZhLines.length > 0) {
+            unifiedChildren.push(...buildFooter(innerZhLines.join('\n'), innerEnLines.join('\n'), isError));
+        }
         elements.push({
             tag: 'collapsible_panel',
             expanded: false,
@@ -412,28 +433,28 @@ function buildCompleteCard(params) {
             elements: unifiedChildren,
         });
     }
-    // Footer meta-info: split into two lines for readability.
-    // Line 1 (primary): status · elapsed · model
-    // Line 2 (detail):  tokens · cache · context
-    const fp = formatFooterRuntimeSegments({
-        footer,
-        metrics: footerMetrics,
-        elapsedMs,
-        isError,
-        isAborted,
-    });
-    const footerZhLines = [];
-    const footerEnLines = [];
-    if (fp.primaryZh.length > 0) {
-        footerZhLines.push(fp.primaryZh.join(' · '));
-        footerEnLines.push(fp.primaryEn.join(' · '));
-    }
-    if (fp.detailZh.length > 0) {
-        footerZhLines.push(fp.detailZh.join(' · '));
-        footerEnLines.push(fp.detailEn.join(' · '));
-    }
-    if (footerZhLines.length > 0) {
-        elements.push(...buildFooter(footerZhLines.join('\n'), footerEnLines.join('\n'), isError));
+    else if (footer) {
+        // 没有思考/工具时，footer 单独渲染（无面板可并入）
+        const fp = formatFooterRuntimeSegments({
+            footer,
+            metrics: footerMetrics,
+            elapsedMs,
+            isError,
+            isAborted,
+        });
+        const footerZhLines = [];
+        const footerEnLines = [];
+        if (fp.primaryZh.length > 0) {
+            footerZhLines.push(fp.primaryZh.join(' · '));
+            footerEnLines.push(fp.primaryEn.join(' · '));
+        }
+        if (fp.detailZh.length > 0) {
+            footerZhLines.push(fp.detailZh.join(' · '));
+            footerEnLines.push(fp.detailEn.join(' · '));
+        }
+        if (footerZhLines.length > 0) {
+            elements.push(...buildFooter(footerZhLines.join('\n'), footerEnLines.join('\n'), isError));
+        }
     }
     // Use the answer text as the feed preview summary.
     // Strip markdown syntax so the preview reads as plain text.
