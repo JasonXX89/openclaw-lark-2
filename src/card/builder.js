@@ -344,11 +344,12 @@ function buildStreamingCard(partialText, params = {}) {
 function buildCompleteCard(params) {
     const { text, elapsedMs, isError, reasoningText, reasoningElapsedMs, toolUseSteps, toolUseTitleSuffix, toolUseElapsedMs, showToolUse = true, isAborted, footer, footerMetrics, } = params;
     const elements = [];
-    // 答案正文放最上面（参考薯条卡片布局）
-    // Full text content
+    // 状态 emoji 前缀在答案正文最前面（✅/❌/⏹️）
+    const statusPrefix = isError ? '❌ ' : isAborted ? '⏹️ ' : '✅ ';
+    // 答案正文放最上面，状态 emoji 领头
     elements.push({
         tag: 'markdown',
-        content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
+        content: statusPrefix + (0, markdown_style_1.optimizeMarkdownStyle)(text),
     });
     // 统一折叠面板（薯条样式）：思考 + 工具调用合并到底部一个面板，点击展开
     // 标题：🍟 {model} · 💭{思考轮数} · 🔧{工具步数} · ⏱️ {耗时}
@@ -388,15 +389,15 @@ function buildCompleteCard(params) {
             }
             const reorderedZh = [];
             const reorderedEn = [];
-            // 状态段（✅/❌/⏹️）最前
+            // 状态段（✅/❌/⏹️）已上移至答案正文最前，标题中跳过
             const iStatusZh = primaryZh.findIndex((s) => s.startsWith('✅') || s.startsWith('❌') || s.startsWith('⏹️'));
             if (iStatusZh >= 0) {
-                reorderedZh.push(primaryZh.splice(iStatusZh, 1)[0]);
-                reorderedEn.push(primaryEn.splice(iStatusZh, 1)[0]);
+                primaryZh.splice(iStatusZh, 1);
+                primaryEn.splice(iStatusZh, 1);
             }
             reorderedZh.push(...primaryZh);
             reorderedEn.push(...primaryEn);
-            // 耗时最后
+            // 耗时最后（标题末尾 = 面板视觉最右端）
             if (elapsedZh)
                 reorderedZh.push(elapsedZh);
             if (elapsedEn)
