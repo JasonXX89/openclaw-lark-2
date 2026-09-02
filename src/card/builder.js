@@ -180,35 +180,35 @@ function formatFooterRuntimeSegments(params) {
     // --- Primary line: status, elapsed, model ---
     if (footer?.status) {
         if (isError) {
-            primaryZh.push('出错');
-            primaryEn.push('Error');
+            primaryZh.push('❌ 出错');
+            primaryEn.push('❌ Error');
         }
         else if (isAborted) {
-            primaryZh.push('已停止');
-            primaryEn.push('Stopped');
+            primaryZh.push('⏹️ 已停止');
+            primaryEn.push('⏹️ Stopped');
         }
         else {
-            primaryZh.push('已完成');
-            primaryEn.push('Completed');
+            primaryZh.push('✅ 已完成');
+            primaryEn.push('✅ Completed');
         }
     }
     if (footer?.elapsed && elapsedMs != null) {
         const d = formatElapsed(elapsedMs);
-        primaryZh.push(`耗时 ${d}`);
-        primaryEn.push(`Elapsed ${d}`);
+        primaryZh.push(`⏱️ 耗时 ${d}`);
+        primaryEn.push(`⏱️ Elapsed ${d}`);
     }
     if (footer?.model && metrics?.model) {
         const model = metrics.model.trim();
         if (model) {
-            primaryZh.push(model);
-            primaryEn.push(model);
+            primaryZh.push(`🤖 ${model}`);
+            primaryEn.push(`🤖 ${model}`);
         }
     }
     if (footer?.provider && metrics?.provider) {
         const provider = metrics.provider.trim();
         if (provider) {
-            primaryZh.push(provider);
-            primaryEn.push(provider);
+            primaryZh.push(`🔌 ${provider}`);
+            primaryEn.push(`🔌 ${provider}`);
         }
     }
     // --- Detail line: tokens, cache, context ---
@@ -218,8 +218,8 @@ function formatFooterRuntimeSegments(params) {
         if (inTokens != null && outTokens != null) {
             const inLabel = compactNumber(inTokens);
             const outLabel = compactNumber(outTokens);
-            detailZh.push(`↑ ${inLabel} ↓ ${outLabel}`);
-            detailEn.push(`↑ ${inLabel} ↓ ${outLabel}`);
+            detailZh.push(`🎫 ↑ ${inLabel} ↓ ${outLabel}`);
+            detailEn.push(`🎫 ↑ ${inLabel} ↓ ${outLabel}`);
         }
     }
     if (footer?.cache && metrics) {
@@ -231,8 +231,8 @@ function formatFooterRuntimeSegments(params) {
             const hit = total > 0 ? Math.round((read / total) * 100) : 0;
             const left = compactNumber(read);
             const right = compactNumber(write);
-            detailZh.push(`缓存 ${left}/${right} (${hit}%)`);
-            detailEn.push(`Cache ${left}/${right} (${hit}%)`);
+            detailZh.push(`📦 缓存 ${left}/${right} (${hit}%)`);
+            detailEn.push(`📦 Cache ${left}/${right} (${hit}%)`);
         }
     }
     if (footer?.context && metrics) {
@@ -244,8 +244,8 @@ function formatFooterRuntimeSegments(params) {
             const ctxLabel = compactNumber(ctx);
             const pct = ctx > 0 ? Math.round((total / ctx) * 100) : 0;
             const pctLabel = `${pct}%`;
-            detailZh.push(`上下文 ${totalLabel}/${ctxLabel} (${pctLabel})`);
-            detailEn.push(`Context ${totalLabel}/${ctxLabel} (${pctLabel})`);
+            detailZh.push(`📊 上下文 ${totalLabel}/${ctxLabel} (${pctLabel})`);
+            detailEn.push(`📊 Context ${totalLabel}/${ctxLabel} (${pctLabel})`);
         }
     }
     return { primaryZh, primaryEn, detailZh, detailEn };
