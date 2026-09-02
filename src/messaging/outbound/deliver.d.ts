@@ -52,6 +52,40 @@ export interface SendTextLarkParams {
  */
 export declare function sendTextLark(params: SendTextLarkParams): Promise<FeishuSendResult>;
 /**
+ * Parameters for sending a merged multi-image rich-text post via Feishu.
+ */
+export interface SendImageGroupPostLarkParams {
+    /** Plugin configuration. */
+    cfg: ClawdbotConfig;
+    /** Target identifier (chat_id, open_id, or user_id). */
+    to: string;
+    /**
+     * Feishu `image_key` values, one per image, in display order. Every key
+     * must come from a prior successful upload (e.g. `uploadImageFromUrlLark`).
+     */
+    imageKeys: string[];
+    /** When set, the post is sent as a threaded reply. */
+    replyToMessageId?: string;
+    /** When true, the reply appears in the thread instead of main chat. */
+    replyInThread?: boolean;
+    /** Optional account identifier for multi-account setups. */
+    accountId?: string;
+}
+/**
+ * Send a Feishu rich-text post embedding several already-uploaded images.
+ *
+ * Feishu has no album/media-group API, but a `post` message may carry
+ * multiple `img` elements — each image occupying its own paragraph. This
+ * sends N images as ONE message with a single API call, rendering like an
+ * album in the chat. The caller uploads each image first and passes the
+ * resulting `image_key` values.
+ *
+ * @param params - See {@link SendImageGroupPostLarkParams}.
+ * @returns The message ID and chat ID of the combined post.
+ * @throws {Error} When the target is invalid or the API call fails.
+ */
+export declare function sendImageGroupPostLark(params: SendImageGroupPostLarkParams): Promise<FeishuSendResult>;
+/**
  * Parameters for sending an interactive card message via Feishu.
  */
 export interface SendCardLarkParams {

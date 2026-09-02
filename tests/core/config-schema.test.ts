@@ -47,6 +47,20 @@ describe("config-schema", () => {
       expect(result.success).toBe(true);
     });
 
+    it("accepts multiImageMode post/sequential at top level and per account", () => {
+      expect(FeishuConfigSchema.safeParse({ multiImageMode: "post" }).success).toBe(true);
+      expect(FeishuConfigSchema.safeParse({ multiImageMode: "sequential" }).success).toBe(true);
+      expect(
+        FeishuConfigSchema.safeParse({
+          accounts: { bot2: { multiImageMode: "sequential" } },
+        }).success,
+      ).toBe(true);
+    });
+
+    it("rejects an unknown multiImageMode value", () => {
+      expect(FeishuConfigSchema.safeParse({ multiImageMode: "album" }).success).toBe(false);
+    });
+
     it("rejects invalid group policy value", () => {
       const result = FeishuConfigSchema.safeParse({ groupPolicy: "everyone-and-dog" });
       expect(result.success).toBe(false);

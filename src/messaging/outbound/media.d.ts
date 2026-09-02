@@ -258,3 +258,28 @@ export declare function uploadAndSendMediaLark(params: {
  * Local file access is denied. Includes SSRF protection.
  */
 export declare function fetchRemoteImageBuffer(url: string): Promise<Buffer>;
+/**
+ * Check whether a media URL points at an image (by file extension).
+ *
+ * Local paths and remote URLs are both resolved to a file name, then checked
+ * against the known image extension set. URLs whose path carries no image
+ * extension (e.g. signed download URLs) resolve to `false`, so callers can
+ * safely fall back to per-media sends instead of mis-routing a video or
+ * document into the merged image post.
+ */
+export declare function isImageMediaUrl(mediaUrl: string): boolean;
+/**
+ * Fetch an image from a URL (or an allowed local path) and upload it to
+ * Feishu IM storage, returning the assigned `image_key`.
+ *
+ * Any fetch/upload failure propagates to the caller, which then falls back
+ * to the legacy per-media send path.
+ */
+export declare function uploadImageFromUrlLark(params: {
+    cfg: OpenClawConfig;
+    /** URL of the image (http/https) or a local path allowed by `mediaLocalRoots`. */
+    mediaUrl: string;
+    /** Allowed root directories for local file access (SSRF prevention). */
+    mediaLocalRoots?: readonly string[];
+    accountId?: string;
+}): Promise<UploadImageResult>;

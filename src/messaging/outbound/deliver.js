@@ -3,6 +3,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendTextLark = sendTextLark;
 exports.sendCardLark = sendCardLark;
+exports.sendImageGroupPostLark = sendImageGroupPostLark;
 exports.sendMediaLark = sendMediaLark;
 exports.sendCommentReplyLark = sendCommentReplyLark;
 const accounts_1 = require("../../core/accounts.js");
@@ -201,6 +202,44 @@ async function sendTextLark(params) {
     const result = await sendImMessage({ client, to, content, msgType: 'post', replyToMessageId, replyInThread });
     recordSentinelsForChat(prepared.resolvedAccountId, to, threadId, prepared.sentinels);
     return result;
+}
+/**
+ * Send a Feishu rich-text post embedding several already-uploaded images.
+ *
+ * Feishu has no album/media-group API (unlike Telegram's `sendMediaGroup`),
+ * but a `post` message may carry multiple `img` elements — each image must
+ * occupy its own paragraph. This sends N images as ONE message with a single
+ * API call, rendering like an album in the chat.
+ *
+ * The caller is responsible for uploading each image to Feishu first and
+ * passing the resulting `image_key` values, so a partial failure can be
+ * detected before anything is sent (and the caller falls back to sequential
+ * per-image messages).
+ *
+ * @param params - See {@link SendImageGroupPostLarkParams}.
+ * @returns The message ID and chat ID of the combined post.
+ * @throws {Error} When the target is invalid or the API call fails.
+ *
+ * @example
+ * ```ts
+ * const result = await sendImageGroupPostLark({
+ *   cfg,
+ *   to: "oc_xxx",
+ *   imageKeys: ["img_v2_aaa", "img_v2_bbb"],
+ * });
+ * ```
+ */
+async function sendImageGroupPostLark(params) {
+    const { cfg, to, imageKeys, replyToMessageId, replyInThread, accountId } = params;
+    log.info(`sendImageGroupPostLark: target=${to}, imageCount=${imageKeys.length}`);
+    const client = lark_client_1.LarkClient.fromCfg(cfg, accountId).sdk;
+    const content = JSON.stringify({
+        zh_cn: {
+            // Rich-text post paragraphs: one `img` element per paragraph.
+            content: imageKeys.map((imageKey) => [{ tag: 'img', image_key: imageKey }]),
+        },
+    });
+    return sendImMessage({ client, to, content, msgType: 'post', replyToMessageId, replyInThread });
 }
 /**
  * Send an interactive card message to a Feishu chat or user.
