@@ -308,14 +308,6 @@ function buildStreamingCard(partialText, params = {}) {
     const { showToolUse = true, toolUseSteps, toolUseTitleSuffix, reasoningText } = params;
     const elements = [];
     const hasToolUse = Boolean(toolUseSteps?.length);
-    if (showToolUse) {
-        elements.push(hasToolUse
-            ? buildToolUsePanel({
-                toolUseSteps,
-                titleSuffix: toolUseTitleSuffix,
-            })
-            : buildStreamingToolUsePendingPanel());
-    }
     if (!partialText && reasoningText) {
         // Reasoning phase: show reasoning content in notation style
         elements.push({
@@ -335,6 +327,15 @@ function buildStreamingCard(partialText, params = {}) {
             content: (0, markdown_style_1.optimizeMarkdownStyle)(partialText),
         });
     }
+    // 工具面板放底部（答案之后），与 CardKit v2 卡片布局一致
+    if (showToolUse) {
+        elements.push(hasToolUse
+            ? buildToolUsePanel({
+                toolUseSteps,
+                titleSuffix: toolUseTitleSuffix,
+            })
+            : buildStreamingToolUsePendingPanel());
+    }
     return {
         config: { wide_screen_mode: true, update_multi: true, locales: ['zh_cn', 'en_us'] },
         elements,
@@ -343,6 +344,12 @@ function buildStreamingCard(partialText, params = {}) {
 function buildCompleteCard(params) {
     const { text, elapsedMs, isError, reasoningText, reasoningElapsedMs, toolUseSteps, toolUseTitleSuffix, toolUseElapsedMs, showToolUse = true, isAborted, footer, footerMetrics, } = params;
     const elements = [];
+    // 答案正文放最上面（参考薯条卡片布局）
+    // Full text content
+    elements.push({
+        tag: 'markdown',
+        content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
+    });
     if (showToolUse) {
         elements.push(buildToolUsePanel({
             toolUseSteps,
@@ -350,7 +357,7 @@ function buildCompleteCard(params) {
             titleSuffix: toolUseTitleSuffix,
         }));
     }
-    // Collapsible reasoning panel (before main content)
+    // Collapsible reasoning panel (after main content, before footer)
     if (reasoningText) {
         const dur = reasoningElapsedMs ? formatReasoningDuration(reasoningElapsedMs) : null;
         const zhLabel = dur ? dur.zh : '思考';
@@ -388,11 +395,7 @@ function buildCompleteCard(params) {
             ],
         });
     }
-    // Full text content
-    elements.push({
-        tag: 'markdown',
-        content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
-    });
+    // Full text content — 已移至卡片顶部（见上方）
     // Footer meta-info: split into two lines for readability.
     // Line 1 (primary): status · elapsed · model
     // Line 2 (detail):  tokens · cache · context
@@ -521,9 +524,6 @@ function buildStreamingPreAnswerCard(params) {
     const { steps, elapsedMs, showToolUse = true } = params;
     const hasSteps = Boolean(steps?.length);
     const elements = [];
-    if (showToolUse) {
-        elements.push(hasSteps ? buildStreamingToolUseActivePanel({ steps: steps, elapsedMs }) : buildStreamingToolUsePendingPanel());
-    }
     elements.push({
         tag: 'markdown',
         content: '',
@@ -542,10 +542,19 @@ function buildStreamingPreAnswerCard(params) {
         },
         element_id: 'loading_icon',
     });
+    // 工具面板放在正文之后（底部），答案区始终在最上
+    if (showToolUse) {
+        elements.push(hasSteps ? buildStreamingToolUseActivePanel({ steps: steps, elapsedMs }) : buildStreamingToolUsePendingPanel());
+    }
     return {
         schema: '2.0',
         config: {
             streaming_mode: true,
+            streaming_config: {
+                print_frequency_ms: { default: 15 },
+                print_step: { default: 1 },
+                print_strategy: 'fast',
+            },
             locales: ['zh_cn', 'en_us'],
             summary: {
                 content: 'Processing...',
