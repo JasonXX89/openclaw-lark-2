@@ -344,12 +344,11 @@ function buildStreamingCard(partialText, params = {}) {
 function buildCompleteCard(params) {
     const { text, elapsedMs, isError, reasoningText, reasoningElapsedMs, toolUseSteps, toolUseTitleSuffix, toolUseElapsedMs, showToolUse = true, isAborted, footer, footerMetrics, } = params;
     const elements = [];
-    // 状态 emoji 前缀在答案正文最前面（✅/❌/⏹️）
-    const statusPrefix = isError ? '❌ ' : isAborted ? '⏹️ ' : '✅ ';
-    // 答案正文放最上面，状态 emoji 领头
+    // 状态行：✅ 已完成 单独一行，答案正文另起一行
+    const statusLine = isError ? '❌ 出错' : isAborted ? '⏹️ 已停止' : '✅ 已完成';
     elements.push({
         tag: 'markdown',
-        content: statusPrefix + (0, markdown_style_1.optimizeMarkdownStyle)(text),
+        content: `${statusLine}\n\n${(0, markdown_style_1.optimizeMarkdownStyle)(text)}`,
     });
     // 统一折叠面板（薯条样式）：思考 + 工具调用合并到底部一个面板，点击展开
     // 标题：🍟 {model} · 💭{思考轮数} · 🔧{工具步数} · ⏱️ {耗时}
