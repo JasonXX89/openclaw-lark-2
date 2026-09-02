@@ -350,52 +350,68 @@ function buildCompleteCard(params) {
         tag: 'markdown',
         content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
     });
-    if (showToolUse) {
-        elements.push(buildToolUsePanel({
-            toolUseSteps,
-            toolUseElapsedMs,
-            titleSuffix: toolUseTitleSuffix,
-        }));
-    }
-    // Collapsible reasoning panel (after main content, before footer)
-    if (reasoningText) {
-        const dur = reasoningElapsedMs ? formatReasoningDuration(reasoningElapsedMs) : null;
-        const zhLabel = dur ? dur.zh : '思考';
-        const enLabel = dur ? dur.en : 'Thought';
+    // 统一折叠面板（薯条样式）：思考 + 工具调用合并到底部一个面板，点击展开
+    // 标题：🍟 {model} · 💭{思考轮数} · 🔧{工具步数} · ⏱️ {耗时}
+    const hasReasoning = Boolean(reasoningText?.trim());
+    const hasTools = showToolUse && Boolean(toolUseSteps?.length);
+    if (hasReasoning || hasTools) {
+        const model = footerMetrics?.model?.trim() ?? '';
+        const headerParts = ['🍟'];
+        if (model)
+            headerParts.push(model);
+        if (hasReasoning)
+            headerParts.push(`💭1`);
+        if (hasTools)
+            headerParts.push(`🔧${toolUseSteps.length}`);
+        if (toolUseElapsedMs && toolUseElapsedMs > 0) {
+            headerParts.push(`⏱️ ${formatElapsed(toolUseElapsedMs)}`);
+        }
+        else if (reasoningElapsedMs && reasoningElapsedMs > 0 && !hasTools) {
+            headerParts.push(`⏱️ ${formatElapsed(reasoningElapsedMs)}`);
+        }
+        if (toolUseTitleSuffix) {
+            headerParts.push(toolUseTitleSuffix.zh);
+        }
+        const headerText = headerParts.join(' · ');
+        const unifiedChildren = [];
+        if (hasReasoning) {
+            unifiedChildren.push({
+                tag: 'markdown',
+                content: `💭 **思考过程**\n\n${reasoningText}`,
+                i18n_content: {
+                    zh_cn: `💭 **思考过程**\n\n${reasoningText}`,
+                    en_us: `💭 **Reasoning**\n\n${reasoningText}`,
+                },
+                text_size: 'notation',
+            });
+        }
+        if (hasTools) {
+            unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
+        }
         elements.push({
             tag: 'collapsible_panel',
             expanded: false,
             header: {
                 title: {
-                    tag: 'markdown',
-                    content: `💭 ${enLabel}`,
-                    i18n_content: {
-                        zh_cn: `💭 ${zhLabel}`,
-                        en_us: `💭 ${enLabel}`,
-                    },
+                    tag: 'plain_text',
+                    content: headerText,
                 },
                 vertical_align: 'center',
                 icon: {
                     tag: 'standard_icon',
                     token: 'down-small-ccm_outlined',
+                    color: 'grey',
                     size: '16px 16px',
                 },
-                icon_position: 'follow_text',
+                icon_position: 'right',
                 icon_expanded_angle: -180,
             },
             border: { color: 'grey', corner_radius: '5px' },
             vertical_spacing: '8px',
             padding: '8px 8px 8px 8px',
-            elements: [
-                {
-                    tag: 'markdown',
-                    content: reasoningText,
-                    text_size: 'notation',
-                },
-            ],
+            elements: unifiedChildren,
         });
     }
-    // Full text content — 已移至卡片顶部（见上方）
     // Footer meta-info: split into two lines for readability.
     // Line 1 (primary): status · elapsed · model
     // Line 2 (detail):  tokens · cache · context
