@@ -372,22 +372,46 @@ function buildCompleteCard(params) {
             isError,
             isAborted,
         });
-        // 主行（状态/耗时/供应商）进标题；model 已在头部速览显示，跳过防重复
+        // 主行进标题：状态放最前，耗时放最后；model 已在头部速览、provider 不显示，均跳过
         const titleParts = [];
         if (fpTitle.primaryZh.length > 0) {
-            const iModelZh = fpTitle.primaryZh.findIndex((s) => s.startsWith('🤖'));
-            const primaryZh = fpTitle.primaryZh.slice();
-            const primaryEn = fpTitle.primaryEn.slice();
-            if (iModelZh >= 0) {
-                primaryZh.splice(iModelZh, 1);
-                primaryEn.splice(iModelZh, 1);
+            const skip = (s) => s.startsWith('🤖') || s.startsWith('🔌');
+            const primaryZh = fpTitle.primaryZh.filter((s) => !skip(s));
+            const primaryEn = fpTitle.primaryEn.filter((s) => !skip(s));
+            // 耗时挪到末尾：从主行中提出
+            const iElapsedZh = primaryZh.findIndex((s) => s.startsWith('⏱️'));
+            let elapsedZh = '';
+            let elapsedEn = '';
+            if (iElapsedZh >= 0) {
+                elapsedZh = primaryZh.splice(iElapsedZh, 1)[0];
+                primaryEn.splice(iElapsedZh, 1)[0];
             }
-            if (primaryZh.length > 0) {
-                titleParts.push(primaryZh.join(' · '));
+            const reorderedZh = [];
+            const reorderedEn = [];
+            // 状态段（✅/❌/⏹️）最前
+            const iStatusZh = primaryZh.findIndex((s) => s.startsWith('✅') || s.startsWith('❌') || s.startsWith('⏹️'));
+            if (iStatusZh >= 0) {
+                reorderedZh.push(primaryZh.splice(iStatusZh, 1)[0]);
+                reorderedEn.push(primaryEn.splice(iStatusZh, 1)[0]);
+            }
+            reorderedZh.push(...primaryZh);
+            reorderedEn.push(...primaryEn);
+            // 耗时最后
+            if (elapsedZh)
+                reorderedZh.push(elapsedZh);
+            if (elapsedEn)
+                reorderedEn.push(elapsedEn);
+            if (reorderedZh.length > 0) {
+                titleParts.push(reorderedZh.join(' · '));
             }
         }
         if (fpTitle.detailZh.length > 0) {
-            titleParts.push(fpTitle.detailZh.join(' · '));
+            // 上下文/缓存中只保留上下文；📦 缓存段去掉
+            const detailFiltered = fpTitle.detailZh.filter((s) => !s.startsWith('📦'));
+            const detailFilteredEn = fpTitle.detailEn.filter((s) => !s.startsWith('📦'));
+            if (detailFiltered.length > 0) {
+                titleParts.push(detailFiltered.join(' · '));
+            }
         }
         const headerText = [headerParts.join(' · '), ...titleParts].filter(Boolean).join(' | ');
         const unifiedChildren = [];
