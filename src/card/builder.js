@@ -194,21 +194,21 @@ function formatFooterRuntimeSegments(params) {
     }
     if (footer?.elapsed && elapsedMs != null) {
         const d = formatElapsed(elapsedMs);
-        primaryZh.push(`⏱️ ${d}`);
-        primaryEn.push(`⏱️ ${d}`);
+        primaryZh.push(`⏱️${d}`);
+        primaryEn.push(`⏱️${d}`);
     }
     if (footer?.model && metrics?.model) {
         const model = metrics.model.trim();
         if (model) {
-            primaryZh.push(`🤖 ${model}`);
-            primaryEn.push(`🤖 ${model}`);
+            primaryZh.push(`🤖${model}`);
+            primaryEn.push(`🤖${model}`);
         }
     }
     if (footer?.provider && metrics?.provider) {
         const provider = metrics.provider.trim();
         if (provider) {
-            primaryZh.push(`🔌 ${provider}`);
-            primaryEn.push(`🔌 ${provider}`);
+            primaryZh.push(`🔌${provider}`);
+            primaryEn.push(`🔌${provider}`);
         }
     }
     // --- Detail line: tokens, cache, context ---
@@ -218,8 +218,8 @@ function formatFooterRuntimeSegments(params) {
         if (inTokens != null && outTokens != null) {
             const inLabel = compactNumber(inTokens);
             const outLabel = compactNumber(outTokens);
-            detailZh.push(`🎫 ↑ ${inLabel} ↓ ${outLabel}`);
-            detailEn.push(`🎫 ↑ ${inLabel} ↓ ${outLabel}`);
+            detailZh.push(`🎫↑${inLabel} ↓${outLabel}`);
+            detailEn.push(`🎫↑${inLabel} ↓${outLabel}`);
         }
     }
     if (footer?.cache && metrics) {
@@ -231,8 +231,8 @@ function formatFooterRuntimeSegments(params) {
             const hit = total > 0 ? Math.round((read / total) * 100) : 0;
             const left = compactNumber(read);
             const right = compactNumber(write);
-            detailZh.push(`📦 ${left}/${right} (${hit}%)`);
-            detailEn.push(`📦 ${left}/${right} (${hit}%)`);
+            detailZh.push(`📦${left}/${right} (${hit}%)`);
+            detailEn.push(`📦${left}/${right} (${hit}%)`);
         }
     }
     if (footer?.context && metrics) {
@@ -244,8 +244,8 @@ function formatFooterRuntimeSegments(params) {
             const ctxLabel = compactNumber(ctx);
             const pct = ctx > 0 ? Math.round((total / ctx) * 100) : 0;
             const pctLabel = `${pct}%`;
-            detailZh.push(`📊 ${totalLabel}/${ctxLabel} (${pctLabel})`);
-            detailEn.push(`📊 ${totalLabel}/${ctxLabel} (${pctLabel})`);
+            detailZh.push(`📊${totalLabel}/${ctxLabel} (${pctLabel})`);
+            detailEn.push(`📊${totalLabel}/${ctxLabel} (${pctLabel})`);
         }
     }
     return { primaryZh, primaryEn, detailZh, detailEn };
@@ -357,9 +357,11 @@ function buildCompleteCard(params) {
     if (hasReasoning || hasTools) {
         // 面板标题：🤖 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
         const model = footerMetrics?.model?.trim() ?? '';
-        const headerParts = ['🤖'];
+        const headerParts = [];
         if (model)
-            headerParts.push(model);
+            headerParts.push(`🤖${model}`);
+        else
+            headerParts.push('🤖');
         if (hasReasoning)
             headerParts.push(`💭1`);
         if (hasTools)
