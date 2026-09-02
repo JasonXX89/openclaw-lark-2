@@ -355,6 +355,7 @@ function buildCompleteCard(params) {
     const hasReasoning = Boolean(reasoningText?.trim());
     const hasTools = showToolUse && Boolean(toolUseSteps?.length);
     if (hasReasoning || hasTools) {
+        // 面板标题：🤖 model · 💭n · 🔧n（只保留计数，模型/耗时等详情在面板内 footer，不重复）
         const model = footerMetrics?.model?.trim() ?? '';
         const headerParts = ['🤖'];
         if (model)
@@ -363,15 +364,6 @@ function buildCompleteCard(params) {
             headerParts.push(`💭1`);
         if (hasTools)
             headerParts.push(`🔧${toolUseSteps.length}`);
-        if (toolUseElapsedMs && toolUseElapsedMs > 0) {
-            headerParts.push(`⏱️ ${formatElapsed(toolUseElapsedMs)}`);
-        }
-        else if (reasoningElapsedMs && reasoningElapsedMs > 0 && !hasTools) {
-            headerParts.push(`⏱️ ${formatElapsed(reasoningElapsedMs)}`);
-        }
-        if (toolUseTitleSuffix) {
-            headerParts.push(toolUseTitleSuffix.zh);
-        }
         const headerText = headerParts.join(' · ');
         const unifiedChildren = [];
         if (hasReasoning) {
