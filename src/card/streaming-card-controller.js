@@ -144,11 +144,26 @@ class StreamingCardController {
     resolveContextWindow(provider, model) {
         try {
             const providers = this.deps.cfg?.models?.providers ?? {};
+            // 1) 精确匹配：同一 provider 下按 id 查
             const pcfg = providers[provider];
-            if (!pcfg || !Array.isArray(pcfg.models))
-                return undefined;
-            const found = pcfg.models.find((m) => m && m.id === model);
-            return typeof found?.contextWindow === 'number' ? found.contextWindow : undefined;
+            if (pcfg && Array.isArray(pcfg.models)) {
+                const found = pcfg.models.find((m) => m && m.id === model);
+                if (typeof found?.contextWindow === 'number')
+                    return found.contextWindow;
+            }
+            // 2) 跨 provider 回退：按裸模型名（去掉 "xxx/" 前缀）或后缀匹配任意 provider
+            //    场景：网关聚合供应商（如 10router 的 oc/mimo-v2.5-free）未配 contextWindow，
+            //    但直连供应商（如 opencode 的 mimo-v2.5-free）配了同一个底层模型。
+            const bare = model.includes('/') ? model.split('/').pop() : model;
+            for (const p of Object.values(providers)) {
+                if (!p || !Array.isArray(p.models))
+                    continue;
+                const hit = p.models.find((m) => m && typeof m.contextWindow === 'number' && (m.id === bare || model.endsWith(`/${m.id}`)));
+                if (hit)
+                    return hit.contextWindow;
+            }
+            // 3) 兜底：如果 usage 报告了 totalTokens 但没有任何目录信息，返回 undefined（不显示上下文段）
+            return undefined;
         }
         catch {
             return undefined;
