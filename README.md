@@ -113,6 +113,16 @@ The plugin is CommonJS source (`src/` + `index.js` entry) with no build step —
 
 ## 许可 — License
 
-基于 [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark)（MIT）二次开发，保留 MIT 许可及原版权声明。
+基于以下项目二次开发，均采用 MIT 许可：
 
-Adapted from [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) (MIT). MIT licensed, original copyright notice retained.
+- [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) — 飞书官方出品
+- [Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2) — OpenClaw 2.0 适配版
+
+MIT 许可及原版权声明保留。
+
+Adapted from the following MIT-licensed projects:
+
+- [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) — official Feishu/Lark plugin
+- [Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2) — OpenClaw 2.0 adaptation
+
+MIT licensed, original copyright notices retained.
