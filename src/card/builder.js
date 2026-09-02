@@ -218,8 +218,8 @@ function formatFooterRuntimeSegments(params) {
         if (inTokens != null && outTokens != null) {
             const inLabel = compactNumber(inTokens);
             const outLabel = compactNumber(outTokens);
-            detailZh.push(`🎫↑${inLabel} ↓${outLabel}`);
-            detailEn.push(`🎫↑${inLabel} ↓${outLabel}`);
+            detailZh.push(`🎫↑${inLabel}↓${outLabel}`);
+            detailEn.push(`🎫↑${inLabel}↓${outLabel}`);
         }
     }
     if (footer?.cache && metrics) {
