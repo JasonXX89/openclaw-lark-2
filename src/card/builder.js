@@ -355,7 +355,7 @@ function buildCompleteCard(params) {
     const hasReasoning = Boolean(reasoningText?.trim());
     const hasTools = showToolUse && Boolean(toolUseSteps?.length);
     if (hasReasoning || hasTools) {
-        // 面板标题：🤖 model · 💭n · 🔧n（只保留计数，模型/耗时等详情在面板内 footer，不重复）
+        // 面板标题：🤖 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
         const model = footerMetrics?.model?.trim() ?? '';
         const headerParts = ['🤖'];
         if (model)
@@ -364,7 +364,32 @@ function buildCompleteCard(params) {
             headerParts.push(`💭1`);
         if (hasTools)
             headerParts.push(`🔧${toolUseSteps.length}`);
-        const headerText = headerParts.join(' · ');
+        // footer 信息并入面板标题（全部指标显示在标题上，展开后内部只有思考/工具）
+        const fpTitle = formatFooterRuntimeSegments({
+            footer,
+            metrics: footerMetrics,
+            elapsedMs,
+            isError,
+            isAborted,
+        });
+        // 主行（状态/耗时/供应商）进标题；model 已在头部速览显示，跳过防重复
+        const titleParts = [];
+        if (fpTitle.primaryZh.length > 0) {
+            const iModelZh = fpTitle.primaryZh.findIndex((s) => s.startsWith('🤖'));
+            const primaryZh = fpTitle.primaryZh.slice();
+            const primaryEn = fpTitle.primaryEn.slice();
+            if (iModelZh >= 0) {
+                primaryZh.splice(iModelZh, 1);
+                primaryEn.splice(iModelZh, 1);
+            }
+            if (primaryZh.length > 0) {
+                titleParts.push(primaryZh.join(' · '));
+            }
+        }
+        if (fpTitle.detailZh.length > 0) {
+            titleParts.push(fpTitle.detailZh.join(' · '));
+        }
+        const headerText = [headerParts.join(' · '), ...titleParts].filter(Boolean).join(' | ');
         const unifiedChildren = [];
         if (hasReasoning) {
             unifiedChildren.push({
@@ -379,27 +404,6 @@ function buildCompleteCard(params) {
         }
         if (hasTools) {
             unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
-        }
-        // footer 信息并入统一面板内部（思考/工具之后）
-        const fpInner = formatFooterRuntimeSegments({
-            footer,
-            metrics: footerMetrics,
-            elapsedMs,
-            isError,
-            isAborted,
-        });
-        const innerZhLines = [];
-        const innerEnLines = [];
-        if (fpInner.primaryZh.length > 0) {
-            innerZhLines.push(fpInner.primaryZh.join(' · '));
-            innerEnLines.push(fpInner.primaryEn.join(' · '));
-        }
-        if (fpInner.detailZh.length > 0) {
-            innerZhLines.push(fpInner.detailZh.join(' · '));
-            innerEnLines.push(fpInner.detailEn.join(' · '));
-        }
-        if (innerZhLines.length > 0) {
-            unifiedChildren.push(...buildFooter(innerZhLines.join('\n'), innerEnLines.join('\n'), isError));
         }
         elements.push({
             tag: 'collapsible_panel',
