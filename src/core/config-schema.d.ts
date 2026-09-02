@@ -133,6 +133,10 @@ export declare const FeishuAccountConfigSchema: z.ZodObject<{
     }, z.core.$strip>]>>;
     streaming: z.ZodOptional<z.ZodBoolean>;
     blockStreaming: z.ZodOptional<z.ZodBoolean>;
+    multiImageMode: z.ZodOptional<z.ZodEnum<{
+        post: "post";
+        sequential: "sequential";
+    }>>;
     toolUseDisplay: z.ZodOptional<z.ZodObject<{
         showFullPaths: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
@@ -282,6 +286,10 @@ export declare const FeishuConfigSchema: z.ZodObject<{
     }, z.core.$strip>]>>;
     streaming: z.ZodOptional<z.ZodBoolean>;
     blockStreaming: z.ZodOptional<z.ZodBoolean>;
+    multiImageMode: z.ZodOptional<z.ZodEnum<{
+        post: "post";
+        sequential: "sequential";
+    }>>;
     toolUseDisplay: z.ZodOptional<z.ZodObject<{
         showFullPaths: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strip>>;
@@ -430,6 +438,14 @@ export declare const FeishuConfigSchema: z.ZodObject<{
         }, z.core.$strip>]>>;
         streaming: z.ZodOptional<z.ZodBoolean>;
         blockStreaming: z.ZodOptional<z.ZodBoolean>;
+        multiImageMode: z.ZodOptional<z.ZodEnum<{
+            post: "post";
+            sequential: "sequential";
+        }>>;
+    multiImageMode: z.ZodOptional<z.ZodEnum<{
+        post: "post";
+        sequential: "sequential";
+    }>>;
         toolUseDisplay: z.ZodOptional<z.ZodObject<{
             showFullPaths: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strip>>;

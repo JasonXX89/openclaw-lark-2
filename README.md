@@ -18,7 +18,8 @@
 - **内置 `ask_user` 工具按钮渲染**：通用 `ask_user` 问题渲染为带选项按钮的交互卡片，点击即解析；支持"其他答案"输入框表单；群聊中所有成员均可交互 / Built-in `ask_user` button rendering: generic `ask_user` questions become interactive cards with option buttons; supports an "Other answer" input form; every group member can interact
 - **工具调用动态展示**：流式卡片内实时展示 agent 正在调用的工具步骤，默认开启（`channels.feishu.toolUseDisplay.enabled: false` 可关） / Live tool-activity display inside streaming cards, on by default (disable via `channels.feishu.toolUseDisplay.enabled: false`)
 - **群聊流式卡片**：`channels.feishu.replyMode.group: "streaming"` 让群聊与私聊一样使用流式卡片 / Group streaming cards: `channels.feishu.replyMode.group: "streaming"` gives groups the same streaming-card experience as DMs
-- **运行指标一行内展示**：折叠面板标题浓缩 `🤖模型 💭思考次数 🔧工具步数 ⏱️耗时 🎫tokens 📊上下文用量`（支持 emoji 图标简洁样式，模型多级回退自动识别上下文窗口）/ Runtime metrics in one line: `🤖model 💭reasoning-count 🔧tool-count ⏱️elapsed 🎫tokens 📊context-usage` (compact emoji style; context window auto-resolved with multi-provider fallback)
+- **运行指标一行内展示**：折叠面板标题浓缩 `🤖模型 💭思考次数 🔧工具步数 ⏱️耗时 🎫tokens 📊上下文用量`（emoji 紧凑样式，模型多级回退自动识别上下文窗口）/ Runtime metrics in one line: `🤖model 💭reasoning-count 🔧tool-count ⏱️elapsed 🎫tokens 📊context-usage` (compact emoji style; context window auto-resolved with multi-provider fallback)
+- **多图合并为一条富文本 post**：模型一次发送 ≥2 张图片时默认合并为**一条** post 消息（飞书无相册 API，每张图一个段落）；`channels.feishu.multiImageMode: "sequential"` 可改回逐张发送。任一张上传失败自动回退逐张，不丢图 / Multi-image merged post: when the model emits ≥2 images at once they merge into a **single** rich-text post by default (Feishu has no album API; one `img` paragraph per image). Set `channels.feishu.multiImageMode: "sequential"` for legacy per-image sends. Any upload failure falls back to per-image sends — nothing is lost.
 - **SSRF 防护**：所有出站 HTTP 请求统一走 SDK `fetchWithSsrFGuard`——DNS pinning 防 rebinding、IPv4+IPv6 私有/保留地址阻断、重定向逐跳校验、hostname 白名单 / SSRF protection: all outbound HTTP goes through the SDK `fetchWithSsrFGuard` — DNS pinning (anti-rebinding), IPv4+IPv6 private/reserved-address blocking, per-hop redirect validation, hostname allowlist
 - **PIN 消息操作**：内置 message 工具新增 `pin` / `unpin` / `list-pins` / PIN message actions: `pin` / `unpin` / `list-pins` on the built-in message tool
 - **测试基座**：vitest 最小测试套件（`npm test`） / Test base: a minimal vitest suite (`npm test`)
@@ -45,7 +46,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
-| **2026.9.4** | 2026-09-03 | 卡片样式重构：答案置顶、思考+工具合并为单一底部折叠面板、指标并入面板标题（emoji 紧凑样式 `🤖mimo 💭n 🔧n ⏱️… 🎫… 📊…`）、上下文窗口跨 provider 自动识别 / Card style rework: answer on top, reasoning+tools merged into one bottom collapsible panel, metrics inlined into panel title (compact emoji `🤖mimo 💭n 🔧n ⏱️… 🎫… 📊…`), multi-provider context-window auto-resolution |
+| **2026.9.4** | 2026-09-03 | 多图合并为一条富文本 post：`channels.feishu.multiImageMode`（默认 `post`，`sequential` 回退逐张；任一上传失败自动回退）+ 卡片样式重构（答案置顶、思考/工具收单一折叠面板、指标并入标题 `🤖mimo 💭n 🔧n ⏱️… 🎫… 📊…`、上下文窗口跨 provider 自动识别）/ Merged multi-image post + card style rework (multiImageMode; answer on top, unified collapsible panel, metrics inlined into title; multi-provider context-window auto-resolution) |
 | **2026.9.3** | 2026-09-02 | SSRF 防护全量落地、PIN 消息操作、vitest 测试基座（9 文件 78 用例）+ 全量安全测试通过 / Full SSRF protection, PIN message actions, vitest test base (9 files / 78 tests) + complete security testing passed |
 | **2026.9.2** | 2026-09-01 | 修复 ask_user "其他答案"提交；移除 feishu_ask_user_question；群聊流式卡片；工具 dry-run 脚本 / Fix ask_user "Other" submit; remove feishu_ask_user_question; group streaming cards; tool dry-run script |
 | **2026.9.1** | 2026-09-01 | OpenClaw 2.0 兼容修复、内置 ask_user 按钮渲染、工具动态展示、ClawHub 发布 / OpenClaw 2.0 compat fixes, built-in ask_user buttons, tool-activity display, ClawHub release |
@@ -89,6 +90,10 @@ cd openclaw-lark
       accounts: {
         plaud: { appId: "cli_yyy", appSecret: "yyy", dmPolicy: "pairing" },
       },
+      // 多图合并：post（默认，一次发多条图为一条）/ sequential（逐张发送）
+      // multi-image: "post" (default, merge ≥2 images into one rich-text post)
+      //              | "sequential" (legacy per-image sends)
+      multiImageMode: "post",
       // footer 七项全开 / all 7 footer metrics on
       footer: {
         status: true,

@@ -56,6 +56,8 @@ exports.parseOggOpusDuration = parseOggOpusDuration;
 exports.parseMp4Duration = parseMp4Duration;
 exports.uploadAndSendMediaLark = uploadAndSendMediaLark;
 exports.fetchRemoteImageBuffer = fetchRemoteImageBuffer;
+exports.isImageMediaUrl = isImageMediaUrl;
+exports.uploadImageFromUrlLark = uploadImageFromUrlLark;
 const fs = __importStar(require("node:fs"));
 const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
@@ -303,6 +305,41 @@ async function uploadImageLark(params) {
             `Response: ${JSON.stringify(response).slice(0, 200)}`);
     }
     return { imageKey };
+}
+// ---------------------------------------------------------------------------
+// Multi-image post helpers (single rich-text post path)
+// ---------------------------------------------------------------------------
+/**
+ * Check whether a media URL points at an image (by file extension).
+ *
+ * Local paths and remote URLs are both resolved to a file name via
+ * `resolveFileNameFromMediaUrl`, then checked against the known image
+ * extension set. URLs whose path carries no image extension (e.g. signed
+ * download URLs) resolve to `false`, so callers can safely fall back to
+ * per-media sends instead of mis-routing a video or document.
+ */
+function isImageMediaUrl(mediaUrl) {
+    if (!mediaUrl)
+        return false;
+    const fileName = (0, media_url_utils_1.resolveFileNameFromMediaUrl)(mediaUrl);
+    if (!fileName)
+        return false;
+    return isImageFileName(fileName);
+}
+/**
+ * Fetch an image from a URL (or an allowed local path) and upload it to
+ * Feishu IM storage, returning the assigned `image_key`.
+ *
+ * Wraps the internal {@link fetchMediaBuffer} + {@link uploadImageLark} pair
+ * so the multi-image post path can collect image_keys for every URL before
+ * issuing a single combined message. Any fetch/upload failure propagates to
+ * the caller, which then falls back to the legacy per-media send path.
+ */
+async function uploadImageFromUrlLark(params) {
+    const { cfg, mediaUrl, mediaLocalRoots, accountId } = params;
+    const buffer = await fetchMediaBuffer(mediaUrl, mediaLocalRoots);
+    log.debug(`uploadImageFromUrlLark: fetched "${mediaUrl}", ${buffer.length} bytes`);
+    return uploadImageLark({ cfg, image: buffer, imageType: 'message', accountId });
 }
 // ---------------------------------------------------------------------------
 // uploadFileLark

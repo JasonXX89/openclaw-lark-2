@@ -7,7 +7,10 @@ const lark_logger_1 = require("../../core/lark-logger.js");
 const targets_1 = require("../../core/targets.js");
 const comment_target_1 = require("../../core/comment-target.js");
 const synthetic_target_1 = require("../../core/synthetic-target.js");
+const accounts_1 = require("../../core/accounts.js");
 const deliver_1 = require("./deliver.js");
+const media_1 = require("./media.js");
+const multi_image_mode_1 = require("./multi-image-mode.js");
 const outbound_mention_1 = require("./outbound-mention.js");
 const bot_peer_context_1 = require("./bot-peer-context.js");
 /**
@@ -174,9 +177,47 @@ exports.feishuOutbound = {
             const result = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
             return { channel: 'feishu', ...result };
         }
-        // Has media: send leading text, then loop media URLs
+        // Has media: send leading text, then media
         if (text.trim()) {
             await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
+        }
+        // --- Multi-image merge (default): one Feishu post, one img per paragraph ---
+        // Feishu has no album/media-group API, so ≥2 image URLs are merged into
+        // a single rich-text post by default. Opt out per account/global with
+        // `channels.feishu.multiImageMode: "sequential"`. Any failure in the
+        // merged path (e.g. an upload error) falls back to sequential sends so
+        // no image is lost. Mixed media (non-image among the URLs) always uses
+        // the sequential loop below.
+        const account = (0, accounts_1.getLarkAccount)(cfg, ctx.accountId ?? undefined);
+        const multiImageMode = (0, multi_image_mode_1.resolveMultiImageMode)(account.config);
+        if (multiImageMode === 'post' &&
+            mediaUrls.length >= 2 &&
+            mediaUrls.every((mediaUrl) => (0, media_1.isImageMediaUrl)(mediaUrl))) {
+            try {
+                // Upload every image up-front so a partial failure aborts the
+                // merged path before any message is sent.
+                const imageKeys = [];
+                for (const mediaUrl of mediaUrls) {
+                    const uploaded = await (0, media_1.uploadImageFromUrlLark)({
+                        cfg,
+                        mediaUrl,
+                        mediaLocalRoots,
+                        accountId: ctx.accountId ?? undefined,
+                    });
+                    imageKeys.push(uploaded.imageKey);
+                }
+                const groupResult = await (0, deliver_1.sendImageGroupPostLark)({
+                    ...ctx,
+                    to: ctx.to,
+                    imageKeys,
+                });
+                log.info(`sendPayload: sent ${imageKeys.length} images as a single post`);
+                return { channel: 'feishu', messageId: groupResult.messageId, chatId: groupResult.chatId };
+            }
+            catch (err) {
+                log.warn(`sendPayload: multi-image post failed (${err instanceof Error ? err.message : String(err)}), ` +
+                    `falling back to sequential image sends`);
+            }
         }
         const warnings = [];
         let lastResult;

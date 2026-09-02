@@ -168,6 +168,9 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     replyMode: ReplyModeSchema,
     streaming: zod_1.z.boolean().optional(),
     blockStreaming: zod_1.z.boolean().optional(),
+    // Merge multiple image URLs into one rich-text post ("post", default) or
+    // keep the legacy per-image sends ("sequential").
+    multiImageMode: zod_1.z.enum(['post', 'sequential']).optional(),
     toolUseDisplay: zod_1.z
         .object({
         showFullPaths: zod_1.z.boolean().optional(),
