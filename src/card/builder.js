@@ -1,4 +1,5 @@
 "use strict";
+console.log('[CARD-DEBUG] builder.js loaded with NEW layout v2 at', new Date().toISOString());
 /**
  * Copyright (c) 2026 ByteDance Ltd. and/or its affiliates
  * SPDX-License-Identifier: MIT
@@ -463,18 +464,38 @@ function buildCompleteCard(params) {
             isError,
             isAborted,
         });
-        const footerZhLines = [];
-        const footerEnLines = [];
-        if (fp.primaryZh.length > 0) {
-            footerZhLines.push(fp.primaryZh.join('  '));
-            footerEnLines.push(fp.primaryEn.join('  '));
+        // 与折叠面板标题相同的精简规则：去掉 provider/缓存段
+        const skip = (s) => s.startsWith('🤖') || s.startsWith('🔌') || s.startsWith('📦');
+        // 状态段（✅/❌/⏹️）移出——由状态行（答案上方）展示
+        const statusSkips = (s) => s.startsWith('✅') || s.startsWith('❌') || s.startsWith('⏹️');
+        // 耗时单独提取，放到整行最右
+        const primaryZh = fp.primaryZh.filter((s) => !skip(s) && !statusSkips(s));
+        const primaryEn = fp.primaryEn.filter((s) => !skip(s) && !statusSkips(s));
+        let elapsedZh = '';
+        let elapsedEn = '';
+        const iEl = primaryZh.findIndex((s) => s.startsWith('⏱️'));
+        if (iEl >= 0) {
+            elapsedZh = primaryZh.splice(iEl, 1)[0];
+            elapsedEn = primaryEn.splice(iEl, 1)[0] ?? '';
         }
-        if (fp.detailZh.length > 0) {
-            footerZhLines.push(fp.detailZh.join('  '));
-            footerEnLines.push(fp.detailEn.join('  '));
+        const detailZh = fp.detailZh.filter((s) => !skip(s));
+        const detailEn = fp.detailEn.filter((s) => !skip(s));
+        const footerZhParts = [];
+        const footerEnParts = [];
+        if (primaryZh.length > 0) {
+            footerZhParts.push(primaryZh.join('  '));
+            footerEnParts.push(primaryEn.join('  '));
         }
-        if (footerZhLines.length > 0) {
-            elements.push(...buildFooter(footerZhLines.join('\n'), footerEnLines.join('\n'), isError));
+        if (detailZh.length > 0) {
+            footerZhParts.push(detailZh.join('  '));
+            footerEnParts.push(detailEn.join('  '));
+        }
+        if (elapsedZh) {
+            footerZhParts.push(elapsedZh);
+            footerEnParts.push(elapsedEn);
+        }
+        if (footerZhParts.length > 0) {
+            elements.push(...buildFooter(footerZhParts.join('  '), footerEnParts.join('  '), isError));
         }
     }
     // Use the answer text as the feed preview summary.
