@@ -114,6 +114,25 @@ cd openclaw-lark
 > 提示：飞书应用需在开放平台开通 `cardkit:card:write` 权限，流式卡片才能生效。
 > Tip: the Feishu app needs the `cardkit:card:write` scope enabled in the Open Platform for streaming cards to work.
 
+### 卡片交互回调（必配）
+
+**卡片按钮点击无反应？** 大多是没在飞书开放平台添加卡片回传交互回调。以下两类功能依赖它：
+
+- `ask_user` 选项按钮卡片（用户点选项/提交自定义答案）
+- 卡片上的操作按钮（如 auto-auth 授权引导）
+
+**每个接入的应用都要单独配置**（多账号场景需逐个配）：
+
+1. 打开 [飞书开放平台](https://open.feishu.cn/app) → 进入目标应用
+2. 左侧 **「开发配置」→「事件与回调」**
+3. 切到 **「回调配置」** 标签页（注意不是「事件配置」——`card.action.trigger` 是回调，不在事件列表里）
+4. 订阅方式选 **「使用长连接接收事件」**（本插件默认 WebSocket 长连接）
+5. 点 **「添加回调」** → 搜索 **`card.action.trigger`**（卡片回传交互）→ 添加
+6. **「发布版本」** 让配置生效
+
+> 提醒：只配置了"接收消息"事件不足以让按钮工作——卡片回传交互回调必须单独添加。
+> Tip: subscribing to message-receive events alone is NOT enough — the card callback interaction (`card.action.trigger`) must be added separately for buttons to respond.
+
 ---
 
 ## 开发 / Development
