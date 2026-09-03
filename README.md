@@ -3,6 +3,7 @@
 **OpenClaw 2.0（2026.8.1+）专属飞书 / Lark 渠道插件** · An OpenClaw 2.0 (2026.8.1+) Feishu / Lark channel plugin, adapted from `@larksuite/openclaw-lark`.
 
 > 🧑‍💻 OpenClaw 2.0 适配 by [@mirr0ch1](https://github.com/mirr0ch1)（[Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2)）· OpenClaw 2.0 adaptation by [@mirr0ch1](https://github.com/mirr0ch1) ([Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2))
+> 🎨 流式卡片样式参考 [hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) by [@techysy](https://github.com/techysy) · Streaming-card style reference: [hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) by [@techysy](https://github.com/techysy)
 
 > **背景 / Background**
 >
@@ -49,10 +50,6 @@
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
 | **2026.9.4** | 2026-09-03 | 多图合并为一条富文本 post：`channels.feishu.multiImageMode`（默认 `post`，`sequential` 回退逐张；任一上传失败自动回退）+ 卡片样式重构（答案置顶、思考/工具收单一折叠面板、指标并入标题 `🤖mimo 💭n 🔧n ⏱️… 🎫… 📊…`、上下文窗口跨 provider 自动识别）/ Merged multi-image post + card style rework (multiImageMode; answer on top, unified collapsible panel, metrics inlined into title; multi-provider context-window auto-resolution) |
-| **2026.9.3** | 2026-09-02 | SSRF 防护全量落地、PIN 消息操作、vitest 测试基座（9 文件 78 用例）+ 全量安全测试通过 / Full SSRF protection, PIN message actions, vitest test base (9 files / 78 tests) + complete security testing passed |
-| **2026.9.2** | 2026-09-01 | 修复 ask_user "其他答案"提交；移除 feishu_ask_user_question；群聊流式卡片；工具 dry-run 脚本 / Fix ask_user "Other" submit; remove feishu_ask_user_question; group streaming cards; tool dry-run script |
-| **2026.9.1** | 2026-09-01 | OpenClaw 2.0 兼容修复、内置 ask_user 按钮渲染、工具动态展示、ClawHub 发布 / OpenClaw 2.0 compat fixes, built-in ask_user buttons, tool-activity display, ClawHub release |
-| **2026.8.1** | 2026-08-31 | 初始 2.0 适配分支 / Initial 2.0 adaptation branch |
 
 ---
 
@@ -139,6 +136,7 @@ The plugin is CommonJS source (`src/` + `index.js` entry) with no build step —
 
 - [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) — 飞书官方出品
 - [Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2) — OpenClaw 2.0 适配版
+- [techysy/hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) — 流式卡片样式参考
 
 MIT 许可及原版权声明保留。
 
@@ -146,5 +144,6 @@ Adapted from the following MIT-licensed projects:
 
 - [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) — official Feishu/Lark plugin
 - [Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2) — OpenClaw 2.0 adaptation
+- [techysy/hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) — streaming-card style reference
 
 MIT licensed, original copyright notices retained.
