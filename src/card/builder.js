@@ -374,19 +374,19 @@ function buildCompleteCard(params) {
             isError,
             isAborted,
         });
-        // 主行进标题：状态放最前，耗时放最后；model 已在头部速览、provider 不显示，均跳过
+        // 主行进标题：model 已在头部速览、provider 不显示，均跳过；耗时单独提取放最右
         const titleParts = [];
+        let elapsedZh = '';
+        let elapsedEn = '';
         if (fpTitle.primaryZh.length > 0) {
             const skip = (s) => s.startsWith('🤖') || s.startsWith('🔌');
             const primaryZh = fpTitle.primaryZh.filter((s) => !skip(s));
             const primaryEn = fpTitle.primaryEn.filter((s) => !skip(s));
-            // 耗时挪到末尾：从主行中提出
+            // 耗时挪出：单独放到整行最右
             const iElapsedZh = primaryZh.findIndex((s) => s.startsWith('⏱️'));
-            let elapsedZh = '';
-            let elapsedEn = '';
             if (iElapsedZh >= 0) {
                 elapsedZh = primaryZh.splice(iElapsedZh, 1)[0];
-                primaryEn.splice(iElapsedZh, 1)[0];
+                elapsedEn = primaryEn.splice(iElapsedZh, 1)[0] ?? '';
             }
             const reorderedZh = [];
             const reorderedEn = [];
@@ -398,11 +398,6 @@ function buildCompleteCard(params) {
             }
             reorderedZh.push(...primaryZh);
             reorderedEn.push(...primaryEn);
-            // 耗时最后（标题末尾 = 面板视觉最右端）
-            if (elapsedZh)
-                reorderedZh.push(elapsedZh);
-            if (elapsedEn)
-                reorderedEn.push(elapsedEn);
             if (reorderedZh.length > 0) {
                 titleParts.push(reorderedZh.join('  '));
             }
@@ -414,6 +409,10 @@ function buildCompleteCard(params) {
             if (detailFiltered.length > 0) {
                 titleParts.push(detailFiltered.join('  '));
             }
+        }
+        // 耗时放到整行最右（📊 上下文段之后）
+        if (elapsedZh) {
+            titleParts.push(elapsedZh);
         }
         const headerText = [headerParts.join('  '), ...titleParts].filter(Boolean).join('  ');
         const unifiedChildren = [];
