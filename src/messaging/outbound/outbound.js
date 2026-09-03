@@ -9,6 +9,7 @@ const comment_target_1 = require("../../core/comment-target.js");
 const synthetic_target_1 = require("../../core/synthetic-target.js");
 const accounts_1 = require("../../core/accounts.js");
 const deliver_1 = require("./deliver.js");
+const send_1 = require("./send.js");
 const media_1 = require("./media.js");
 const multi_image_mode_1 = require("./multi-image-mode.js");
 const outbound_mention_1 = require("./outbound-mention.js");
@@ -85,6 +86,23 @@ exports.feishuOutbound = {
         }
         const ctx = resolveFeishuSendContext({ cfg, to, accountId, replyToId, threadId });
         const finalText = applyOutboundMentions(text, ctx.to);
+        // 自主/主动投递的长文本包成卡片，视觉与流式卡片统一：
+        // 多段（\n\n 分隔）或超长文本用卡片渲染；短句保持纯文本避免过度包装。
+        // 卡片有大小上限，超过 ~10000 字仍走纯文本分块（OpenClaw 外层会 chunk）。
+        const looksStructured = finalText.includes('\n\n') || finalText.length >= 200;
+        const tooLongForCard = finalText.length > 10000;
+        if (looksStructured && !tooLongForCard) {
+            log.info(`sendText: structured/long text (len=${finalText.length}), sending as markdown card`);
+            const result = await (0, send_1.sendMarkdownCardFeishu)({
+                cfg: ctx.cfg,
+                to: ctx.to,
+                text: finalText,
+                replyToMessageId: ctx.replyToMessageId,
+                replyInThread: ctx.replyInThread,
+                accountId: ctx.accountId,
+            });
+            return { channel: 'feishu', messageId: result.messageId, chatId: ctx.to };
+        }
         const result = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text: finalText });
         return { channel: 'feishu', ...result };
     },
