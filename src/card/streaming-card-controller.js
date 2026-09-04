@@ -60,6 +60,9 @@ class StreamingCardController {
         reasoningStartTime: null,
         reasoningElapsedMs: 0,
         isReasoningPhase: false,
+        // fry-cards style anti-explosion: at most MAX_REASONING_PANELS segments;
+        // overflow merges into the last one instead of creating a new panel.
+        reasoningSegments: [],
     };
     toolUse = {
         startedAt: null,
@@ -390,8 +393,12 @@ class StreamingCardController {
         }
         this.reasoning.isReasoningPhase = true;
         const split = (0, builder_1.splitReasoningText)(rawText);
+        // OpenClaw 的 onReasoningStream payload.text 是累计全文快照（dist emitReasoningStream：
+        // text=trimmed 全量、delta 单独字段），直接替换即可；面板防爆炸由「单一累计面板」天然保证，
+        // 多轮 thinking 不会产生多个面板（与薯条 max_reasoning_panels 语义等效）。
         this.reasoning.accumulatedReasoningText = split.reasoningText ?? rawText;
-        await this.throttledCardUpdate();
+        // fry-cards 样式：思考进折叠面板，走低频整卡更新（1500ms 节流），不占答案区 15ms 高频通道
+        await this.throttledToolUseStatusUpdate();
     }
     async onToolStart(payload) {
         if (!this.shouldProceed('onToolStart'))
@@ -956,6 +963,7 @@ class StreamingCardController {
                 const card = (0, builder_1.buildCardContent)('streaming', {
                     text: this.reasoning.isReasoningPhase ? '' : resolvedText,
                     reasoningText: this.reasoning.isReasoningPhase ? this.reasoning.accumulatedReasoningText : undefined,
+                    reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
                     toolUseSteps: flushDisplay?.steps,
                     toolUseTitleSuffix: this.computeToolUseTitleSuffix(flushDisplay),
                     showToolUse: this.deps.toolUseDisplay.showToolUse,
@@ -1001,10 +1009,9 @@ class StreamingCardController {
         }
     }
     buildDisplayText() {
-        if (this.reasoning.isReasoningPhase && this.reasoning.accumulatedReasoningText) {
-            const reasoningDisplay = `💭 **Thinking...**\n\n${this.reasoning.accumulatedReasoningText}`;
-            return this.text.accumulatedText ? this.text.accumulatedText + '\n\n' + reasoningDisplay : reasoningDisplay;
-        }
+        // fry-cards style: reasoning streams into its own collapsible panel (via
+        // low-frequency full-card updates), never inline into the answer element.
+        // The answer element only ever carries answer text.
         return this.text.accumulatedText;
     }
     async throttledCardUpdate() {
@@ -1029,10 +1036,14 @@ class StreamingCardController {
             return;
         try {
             const display = this.computeToolUseDisplay();
+            // 思考阶段：整卡更新带上 💭 折叠面板（fry-cards 样式）；答案开始后面板收起为标题态
+            const reasoningVisible = this.reasoning.isReasoningPhase || !this.text.accumulatedText;
             const card = (0, builder_1.buildStreamingPreAnswerCard)({
                 steps: display?.steps,
                 elapsedMs: this.visibleToolUseElapsedMs,
                 showToolUse: this.shouldDisplayToolUse,
+                reasoningText: reasoningVisible ? this.reasoning.accumulatedReasoningText : undefined,
+                reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
             });
             this.cardKit.cardKitSequence += 1;
             await (0, cardkit_1.updateCardKitCard)({

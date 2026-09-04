@@ -1,5 +1,4 @@
 "use strict";
-console.log('[CARD-DEBUG] builder.js loaded with NEW layout v2 at', new Date().toISOString());
 /**
  * Copyright (c) 2026 ByteDance Ltd. and/or its affiliates
  * SPDX-License-Identifier: MIT
@@ -265,6 +264,7 @@ function buildCardContent(state, data = {}) {
         case 'streaming':
             return buildStreamingCard(data.text ?? '', {
                 reasoningText: data.reasoningText,
+                reasoningElapsedMs: data.reasoningElapsedMs,
                 showToolUse: data.showToolUse,
                 toolUseSteps: data.toolUseSteps,
                 toolUseTitleSuffix: data.toolUseTitleSuffix,
@@ -306,20 +306,12 @@ function buildThinkingCard() {
     };
 }
 function buildStreamingCard(partialText, params = {}) {
-    const { showToolUse = true, toolUseSteps, toolUseTitleSuffix, reasoningText } = params;
+    const { showToolUse = true, toolUseSteps, toolUseTitleSuffix, reasoningText, reasoningElapsedMs } = params;
     const elements = [];
     const hasToolUse = Boolean(toolUseSteps?.length);
     if (!partialText && reasoningText) {
-        // Reasoning phase: show reasoning content in notation style
-        elements.push({
-            tag: 'markdown',
-            content: `💭 **Thinking...**\n\n${reasoningText}`,
-            i18n_content: {
-                zh_cn: `💭 **思考中...**\n\n${reasoningText}`,
-                en_us: `💭 **Thinking...**\n\n${reasoningText}`,
-            },
-            text_size: 'notation',
-        });
+        // Reasoning phase: fry-cards style collapsible panel (not inline text)
+        elements.push(buildStreamingReasoningPanel({ reasoningText, reasoningElapsedMs }));
     }
     else if (partialText) {
         // Answer phase: show answer content only
@@ -345,16 +337,31 @@ function buildStreamingCard(partialText, params = {}) {
 function buildCompleteCard(params) {
     const { text, elapsedMs, isError, reasoningText, reasoningElapsedMs, toolUseSteps, toolUseTitleSuffix, toolUseElapsedMs, showToolUse = true, isAborted, footer, footerMetrics, } = params;
     const elements = [];
-    // 状态行：✅ 已完成 单独一行，答案正文另起一行
-    const statusLine = isError ? '❌ 出错' : isAborted ? '⏹️ 已停止' : '✅ 已完成';
-    elements.push({
-        tag: 'markdown',
-        content: `${statusLine}\n\n${(0, markdown_style_1.optimizeMarkdownStyle)(text)}`,
-    });
     // 统一折叠面板（薯条样式）：思考 + 工具调用合并到底部一个面板，点击展开
-    // 标题：🍟 {model} · 💭{思考轮数} · 🔧{工具步数} · ⏱️ {耗时}
-    const hasReasoning = Boolean(reasoningText?.trim());
+    // 短回复豁免（fry-cards unified_panel_min_duration 语义）：有思考、无工具、总耗时
+    // 不足 5s 时不渲染面板 —— 思考内容直接丢弃，答案走纯文本 + footer（与薯条一致）
+    const UNIFIED_PANEL_MIN_DURATION_MS = 5000;
     const hasTools = showToolUse && Boolean(toolUseSteps?.length);
+    const rawReasoning = Boolean(reasoningText?.trim());
+    const exemptShortReasoning = rawReasoning && !hasTools
+        && (typeof elapsedMs !== 'number' || elapsedMs < UNIFIED_PANEL_MIN_DURATION_MS);
+    const reasoningTextFinal = exemptShortReasoning ? undefined : reasoningText;
+    const hasReasoning = Boolean(reasoningTextFinal?.trim());
+    // 状态行仅在出错/停止时外显（ fry 样式：正常完成时 ✅ 并入 footer / 面板标题，不占独立行）
+    const showStatusLine = isError || isAborted;
+    const statusLine = isError ? '❌ 出错' : isAborted ? '⏹️ 已停止' : '✅ 已完成';
+    if (showStatusLine) {
+        elements.push({
+            tag: 'markdown',
+            content: `${statusLine}\n\n${(0, markdown_style_1.optimizeMarkdownStyle)(text)}`,
+        });
+    }
+    else {
+        elements.push({
+            tag: 'markdown',
+            content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
+        });
+    }
     if (hasReasoning || hasTools) {
         // 面板标题：🤖 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
         const model = footerMetrics?.model?.trim() ?? '';
@@ -420,10 +427,10 @@ function buildCompleteCard(params) {
         if (hasReasoning) {
             unifiedChildren.push({
                 tag: 'markdown',
-                content: `💭 **思考过程**\n\n${reasoningText}`,
+                content: `💭 **思考过程**\n\n${reasoningTextFinal}`,
                 i18n_content: {
-                    zh_cn: `💭 **思考过程**\n\n${reasoningText}`,
-                    en_us: `💭 **Reasoning**\n\n${reasoningText}`,
+                    zh_cn: `💭 **思考过程**\n\n${reasoningTextFinal}`,
+                    en_us: `💭 **Reasoning**\n\n${reasoningTextFinal}`,
                 },
                 text_size: 'notation',
             });
@@ -456,7 +463,8 @@ function buildCompleteCard(params) {
         });
     }
     else if (footer) {
-        // 没有思考/工具时，footer 单独渲染（无面板可并入）
+        // fry 样式（借鉴 hermes-fry-cards）：footer 常驻 —— 无面板时也渲染
+        // （✅ 已完成 · ⏱️ · 🎫 · 📊 · 🤖 单行 notation），不渲染面板标题那份指标
         const fp = formatFooterRuntimeSegments({
             footer,
             metrics: footerMetrics,
@@ -465,12 +473,11 @@ function buildCompleteCard(params) {
             isAborted,
         });
         // 与折叠面板标题相同的精简规则：去掉 provider/缓存段
-        const skip = (s) => s.startsWith('🤖') || s.startsWith('🔌') || s.startsWith('📦');
-        // 状态段（✅/❌/⏹️）移出——由状态行（答案上方）展示
-        const statusSkips = (s) => s.startsWith('✅') || s.startsWith('❌') || s.startsWith('⏹️');
+        const skip = (s) => s.startsWith('🔌') || s.startsWith('📦');
+        // 状态段保留在 footer（fry 样式：✅/❌/⏹️ 是 footer 第一个字段，非独立状态行）
         // 耗时单独提取，放到整行最右
-        const primaryZh = fp.primaryZh.filter((s) => !skip(s) && !statusSkips(s));
-        const primaryEn = fp.primaryEn.filter((s) => !skip(s) && !statusSkips(s));
+        const primaryZh = fp.primaryZh.filter((s) => !skip(s));
+        const primaryEn = fp.primaryEn.filter((s) => !skip(s));
         let elapsedZh = '';
         let elapsedEn = '';
         const iEl = primaryZh.findIndex((s) => s.startsWith('⏱️'));
@@ -600,8 +607,9 @@ function buildStreamingThinkingCard(showToolUse = true) {
  * Used both for the initial card and for live updates during tool calls.
  */
 function buildStreamingPreAnswerCard(params) {
-    const { steps, elapsedMs, showToolUse = true } = params;
+    const { steps, elapsedMs, showToolUse = true, reasoningText, reasoningElapsedMs } = params;
     const hasSteps = Boolean(steps?.length);
+    const hasReasoning = Boolean(reasoningText?.trim());
     const elements = [];
     elements.push({
         tag: 'markdown',
@@ -621,6 +629,10 @@ function buildStreamingPreAnswerCard(params) {
         },
         element_id: 'loading_icon',
     });
+    // 思考面板（fry-cards 样式）：流式思考阶段显示为真折叠面板，在答案占位之后、工具面板之前
+    if (hasReasoning) {
+        elements.push(buildStreamingReasoningPanel({ reasoningText, reasoningElapsedMs }));
+    }
     // 工具面板放在正文之后（底部），答案区始终在最上
     if (showToolUse) {
         elements.push(hasSteps ? buildStreamingToolUseActivePanel({ steps: steps, elapsedMs }) : buildStreamingToolUsePendingPanel());
@@ -641,6 +653,51 @@ function buildStreamingPreAnswerCard(params) {
             },
         },
         body: { elements },
+    };
+}
+/**
+ * Build the collapsible panel for streaming reasoning (fry-cards style).
+ * Title: 💭 Thinking… while in progress, 💭 Thought for Xs once elapsed is known.
+ * Panel is expanded by default so the user sees thinking live; the header
+ * collapses cleanly once the answer takes over the streaming element.
+ */
+function buildStreamingReasoningPanel(params) {
+    const { reasoningText, reasoningElapsedMs } = params;
+    const elapsedKnown = typeof reasoningElapsedMs === 'number' && reasoningElapsedMs > 0;
+    const zhTitle = elapsedKnown ? `💭 思考了 ${formatElapsed(reasoningElapsedMs)}` : '💭 思考中...';
+    const enTitle = elapsedKnown ? `💭 Thought for ${formatElapsed(reasoningElapsedMs)}` : '💭 Thinking...';
+    return {
+        tag: 'collapsible_panel',
+        expanded: false,
+        header: {
+            title: {
+                tag: 'plain_text',
+                content: enTitle,
+                i18n_content: {
+                    zh_cn: zhTitle,
+                    en_us: enTitle,
+                },
+                text_color: 'grey',
+                text_size: 'notation',
+            },
+            vertical_align: 'center',
+            icon: {
+                tag: 'standard_icon',
+                token: 'down-small-ccm_outlined',
+                color: 'grey',
+                size: '16px 16px',
+            },
+            icon_position: 'right',
+            icon_expanded_angle: -180,
+        },
+        border: { color: 'grey', corner_radius: '5px' },
+        vertical_spacing: '4px',
+        padding: '8px 8px 8px 8px',
+        elements: [{
+            tag: 'markdown',
+            content: (0, markdown_style_1.optimizeMarkdownStyle)(reasoningText ?? ''),
+            text_size: 'notation',
+        }],
     };
 }
 /**
