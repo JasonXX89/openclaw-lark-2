@@ -12,6 +12,7 @@ exports.updateCardKitCard = updateCardKitCard;
 exports.updateCardKitCardForAuth = updateCardKitCardForAuth;
 exports.sendCardByCardId = sendCardByCardId;
 exports.setCardStreamingMode = setCardStreamingMode;
+exports.batchUpdateCardKit = batchUpdateCardKit;
 const lark_client_1 = require("../core/lark-client.js");
 const lark_logger_1 = require("../core/lark-logger.js");
 const message_unavailable_1 = require("../core/message-unavailable.js");
@@ -199,5 +200,36 @@ async function setCardStreamingMode(params) {
         resp,
         api: 'card.settings',
         context: `seq=${sequence}, streaming_mode=${streamingMode}`,
+    });
+}
+/**
+ * CardKit batch update — structural layer of the two-layer streaming model
+ * (移植 hermes-fry-cards 的 batch_update 结构层).
+ *
+ * 对卡片做「局部更新」：add_elements / partial_update_element / delete_element
+ * 等 action 可一次提交多个，作用在不同元素上（元素增删改）。
+ *
+ * 与 streamCardContent（文本层：单元素 content 刷新）配合：结构变更（新建
+ * reasoning/answer/tool 元素、收面板标题）走这里，文本增量走 streamCardContent。
+ *
+ * @param params.actions - CardKit action 数组，每项形如
+ *   { action: 'add_elements'|'partial_update_element'|'delete_element', params: {...} }
+ *   参考 fry segment_helper: add_elements 用 {type:'insert_before', target_element_id, elements}
+ *   定位插入；partial_update_element 用 {element_id, partial_element}。
+ */
+async function batchUpdateCardKit(params) {
+    const { cfg, cardId, actions, sequence, accountId } = params;
+    const client = lark_client_1.LarkClient.fromCfg(cfg, accountId).sdk;
+    const resp = (await client.cardkit.v1.card.batchUpdate({
+        data: {
+            sequence,
+            actions: JSON.stringify(actions),
+        },
+        path: { card_id: cardId },
+    }));
+    logCardKitResponse({
+        resp,
+        api: 'card.batchUpdate',
+        context: `seq=${sequence}, actions=${Array.isArray(actions) ? actions.length : 1}`,
     });
 }
