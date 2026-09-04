@@ -135,6 +135,36 @@ class SegmentState {
         this._newReasoning(text);
     }
 
+    /**
+     * 设置 reasoning 全文快照（OpenClaw onReasoningStream 语义：text 是累计全文，
+     * 非增量）。若当前末段是 reasoning 则整段覆盖；否则视面板上限新建或并入末段。
+     */
+    setReasoningSnapshot(text) {
+        if (!text) return;
+        const last = this.segments[this.segments.length - 1];
+        if (last && last.type === SegmentType.REASONING) {
+            last.text = text;
+            last.dirty = true;
+            return;
+        }
+        // 已达面板上限：并入最后 reasoning 段（替换其全文为最新快照）
+        let reasoningCount = 0;
+        for (const s of this.segments) {
+            if (s.type === SegmentType.REASONING) reasoningCount += 1;
+        }
+        if (reasoningCount >= this.max_reasoning_panels) {
+            for (let i = this.segments.length - 1; i >= 0; i--) {
+                const s = this.segments[i];
+                if (s.type === SegmentType.REASONING) {
+                    s.text = text;
+                    s.dirty = true;
+                    return;
+                }
+            }
+        }
+        this._newReasoning(text);
+    }
+
     /** answer delta：同型追加否则新建。 */
     onAnswerDelta(text) {
         if (!text) return;

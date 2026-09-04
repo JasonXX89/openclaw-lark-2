@@ -34,6 +34,7 @@ const tool_use_display_1 = require("./tool-use-display.js");
 const tool_use_trace_store_1 = require("./tool-use-trace-store.js");
 const reply_dispatcher_types_1 = require("./reply-dispatcher-types.js");
 const unavailable_guard_1 = require("./unavailable-guard.js");
+const segments_1 = require("./segments.js");
 const log = (0, lark_logger_1.larkLogger)('card/streaming');
 // ---------------------------------------------------------------------------
 // StreamingCardController
@@ -55,6 +56,10 @@ class StreamingCardController {
         lastPartialText: '',
         lastFlushedText: '',
     };
+    /** Segment 流式模型 — 整条回复的顺序单一事实源（reasoning/answer/tool 按事件到达）。
+     *  里程碑A：作为录音层并行记录；渲染层仍从 text/reasoning 派生（行为不变），
+     *  后续里程碑B 切到 segments 驱动增量渲染 + 拆卡。 */
+    segmentState = new segments_1.SegmentState();
     reasoning = {
         accumulatedReasoningText: '',
         reasoningStartTime: null,
@@ -357,6 +362,7 @@ class StreamingCardController {
                 : 0;
             this.reasoning.accumulatedReasoningText = split.reasoningText;
             this.reasoning.isReasoningPhase = true;
+            this.segmentState.setReasoningSnapshot(split.reasoningText);
             await this.throttledCardUpdate();
             return;
         }
@@ -364,10 +370,12 @@ class StreamingCardController {
         this.reasoning.isReasoningPhase = false;
         if (split.reasoningText) {
             this.reasoning.accumulatedReasoningText = split.reasoningText;
+            this.segmentState.setReasoningSnapshot(split.reasoningText);
         }
         const answerText = split.answerText ?? text;
         // 累积 deliver 文本用于最终卡片
         this.text.completedText += (this.text.completedText ? '\n\n' : '') + answerText;
+        this.segmentState.onAnswerDelta(answerText);
         // 没有流式数据时，用 deliver 文本显示在卡片上
         if (!this.text.lastPartialText && !this.text.streamingPrefix) {
             this.text.accumulatedText += (this.text.accumulatedText ? '\n\n' : '') + answerText;
@@ -397,6 +405,8 @@ class StreamingCardController {
         // text=trimmed 全量、delta 单独字段），直接替换即可；面板防爆炸由「单一累计面板」天然保证，
         // 多轮 thinking 不会产生多个面板（与薯条 max_reasoning_panels 语义等效）。
         this.reasoning.accumulatedReasoningText = split.reasoningText ?? rawText;
+        // 里程碑A：并行记入 segments（快照语义）
+        this.segmentState.setReasoningSnapshot(split.reasoningText ?? rawText);
         // fry-cards 样式：思考进折叠面板，走低频整卡更新（1500ms 节流），不占答案区 15ms 高频通道
         await this.throttledToolUseStatusUpdate();
     }
