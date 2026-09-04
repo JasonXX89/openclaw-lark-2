@@ -25,6 +25,7 @@ const lark_logger_1 = require("../../core/lark-logger.js");
 const reactions_1 = require("./reactions.js");
 const pins_1 = require("./pins.js");
 const deliver_1 = require("./deliver.js");
+const send_1 = require("./send.js");
 const media_1 = require("./media.js");
 const log = (0, lark_logger_1.larkLogger)('outbound/actions');
 const FEISHU_SEND_TEXT_DESCRIPTION = 'Text to send as a separate Feishu message. During a normal Feishu streaming-card reply, do not call send just to repeat or finalize the same answer; return the final answer normally so the active card can be completed by the reply dispatcher. Use send only when the user explicitly needs an additional separate message.';
@@ -221,6 +222,21 @@ async function deliverMessage(cfg, sp, accountId, mediaLocalRoots) {
         return await deliverMedia(cfg, sp, accountId, mediaLocalRoots);
     }
     // Text-only path.
+    // 结构化长文本（多段/有排版）包成卡片，视觉更统一；短句/超长保持纯文本。
+    const trimmedText = text.trim();
+    if (trimmedText.includes('\n\n') && trimmedText.length <= 10000) {
+        log.info(`deliverMessage: structured text (len=${trimmedText.length}), sending as markdown card`);
+        const cardResult = await (0, send_1.sendMarkdownCardFeishu)({
+            cfg: sendCtx.cfg,
+            to: sendCtx.to,
+            text,
+            replyToMessageId: sendCtx.replyToMessageId,
+            replyInThread: sendCtx.replyInThread,
+            accountId: sendCtx.accountId,
+        });
+        log.info(`deliverMessage: card sent, messageId=${cardResult.messageId}`);
+        return (0, sdk_compat_1.jsonResult)({ ok: true, messageId: cardResult.messageId, chatId: cardResult.chatId });
+    }
     const result = await (0, deliver_1.sendTextLark)({ ...sendCtx, text });
     log.info(`deliverMessage: text sent, messageId=${result.messageId}`);
     return (0, sdk_compat_1.jsonResult)({ ok: true, messageId: result.messageId, chatId: result.chatId });

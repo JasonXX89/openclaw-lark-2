@@ -190,8 +190,20 @@ exports.feishuOutbound = {
             };
         }
         // --- Standard text + media orchestration (no card) ---
-        // No media: text-only
+        // No media: text-only — 长文本包成卡片（与 sendText 相同规则）
         if (mediaUrls.length === 0) {
+            if (text.trim() && text.includes('\n\n') && text.length <= 10000) {
+                log.info(`sendPayload: structured text (len=${text.length}), sending as markdown card`);
+                const cardResult = await (0, send_1.sendMarkdownCardFeishu)({
+                    cfg: ctx.cfg,
+                    to: ctx.to,
+                    text,
+                    replyToMessageId: ctx.replyToMessageId,
+                    replyInThread: ctx.replyInThread,
+                    accountId: ctx.accountId,
+                });
+                return { channel: 'feishu', messageId: cardResult.messageId, chatId: ctx.to };
+            }
             const result = await (0, deliver_1.sendTextLark)({ ...ctx, to: ctx.to, text });
             return { channel: 'feishu', ...result };
         }
