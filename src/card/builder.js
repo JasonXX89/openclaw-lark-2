@@ -352,21 +352,12 @@ function buildCompleteCard(params) {
         && (typeof elapsedMs !== 'number' || elapsedMs < UNIFIED_PANEL_MIN_DURATION_MS);
     const reasoningTextFinal = showReasoningPanel && !exemptShortReasoning ? reasoningText : undefined;
     const hasReasoning = Boolean(reasoningTextFinal?.trim());
-    // 状态行仅在出错/停止时外显（ fry 样式：正常完成时 ✅ 并入 footer / 面板标题，不占独立行）
-    const showStatusLine = isError || isAborted;
+    // 状态行永远置顶第一行（不受 footer.status 控制）：正常 ✅ / 出错 ❌ / 停止 ⏹️
     const statusLine = isError ? '❌ 出错' : isAborted ? '⏹️ 已停止' : '✅ 已完成';
-    if (showStatusLine) {
-        elements.push({
-            tag: 'markdown',
-            content: `${statusLine}\n\n${(0, markdown_style_1.optimizeMarkdownStyle)(text)}`,
-        });
-    }
-    else {
-        elements.push({
-            tag: 'markdown',
-            content: (0, markdown_style_1.optimizeMarkdownStyle)(text),
-        });
-    }
+    elements.push({
+        tag: 'markdown',
+        content: `${statusLine}\n\n${(0, markdown_style_1.optimizeMarkdownStyle)(text)}`,
+    });
     if (hasReasoning || hasTools) {
         // 面板标题：🤖 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
         const model = footerMetrics?.model?.trim() ?? '';
@@ -478,10 +469,10 @@ function buildCompleteCard(params) {
             isError,
             isAborted,
         });
-        // 与折叠面板标题相同的精简规则：去掉 provider/缓存段
-        const skip = (s) => s.startsWith('🔌') || s.startsWith('📦');
-        // 状态段保留在 footer（fry 样式：✅/❌/⏹️ 是 footer 第一个字段，非独立状态行）
-        // 耗时单独提取，放到整行最右
+        // 纯指标 footer（状态字已在正文前第一行置顶，不重复出现）
+        // 去掉 provider/缓存段 + 状态段（✅/❌/⏹️ 已置顶）；耗时单独提取放最右
+        const skip = (s) => s.startsWith('🔌') || s.startsWith('📦')
+            || s.startsWith('✅') || s.startsWith('❌') || s.startsWith('⏹️');
         const primaryZh = fp.primaryZh.filter((s) => !skip(s));
         const primaryEn = fp.primaryEn.filter((s) => !skip(s));
         let elapsedZh = '';
