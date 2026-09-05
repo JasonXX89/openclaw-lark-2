@@ -423,8 +423,12 @@ function buildCompleteCard(params) {
         // 🔧 工具步骤直接平铺（无工具子面板——与薯条 build_complete_card 一致）。
         const unifiedChildren = [];
         if (hasReasoning) {
+            // 子折叠标题带思考耗时（有值显示「思考了 Xs」，无则通用「思考过程」）
+            const rsnElapsedKnown = typeof reasoningElapsedMs === 'number' && reasoningElapsedMs > 0;
+            const rsnZhTitle = rsnElapsedKnown ? `💭 思考了 ${formatElapsed(reasoningElapsedMs)}` : '💭 思考过程';
+            const rsnEnTitle = rsnElapsedKnown ? `💭 Thought for ${formatElapsed(reasoningElapsedMs)}` : '💭 Reasoning';
             unifiedChildren.push(buildCompleteSubPanel({
-                titleI18n: { zh_cn: '💭 思考过程', en_us: '💭 Reasoning' },
+                titleI18n: { zh_cn: rsnZhTitle, en_us: rsnEnTitle },
                 children: [{
                     tag: 'markdown',
                     content: reasoningTextFinal,
