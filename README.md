@@ -34,16 +34,12 @@
 
 ## 界面预览 / Preview
 
-完成态卡片（`✅ 已完成` 状态行置顶、答案另起一行，折叠面板收纳工具/思考过程）：
+完成态卡片整体（`✅ 已完成` 状态行置顶、答案完整；底部折叠面板**常驻**，标题一行展示 `🤖model 💭N 🔧N 🎫tokens 📊context ⏱️耗时`；展开后按工作流时间线展示 工具步骤与思考块 交错——`🔧 Fetch` → `💭 思考1` → `🔧 Run` → `💭 思考2` → …）：
 
-![完成态卡片](assets/screenshot-complete.png)
+![卡片整体+展开的工作流时间线](assets/screenshot-workflow.jpg)
 
-底部折叠面板（**常驻**：收起态标题一行内展示全部指标 `🤖model 💭N 🔧N ⏱️耗时 🎫tokens 📊上下文`，计数为真实值、没用显示 0；点击展开按工作流时间线查看——`💭 思考1` → 🔧 工具 → `💭 思考2` → …）：
-
-![折叠面板](assets/screenshot-collapsed-panel.png)
-
-> 截图为移动端飞书效果。面板**无论有无思考/工具都显示**（💭0 🔧0 也有面板，展开提示暂无过程）；思考/工具进行中默认折叠。展开后思考块（可再点开看全文）与工具步骤按真实发生顺序交错，忠实还原 agent 工作流。`showReasoning`+`showTools` 双 false 时面板消失，只留纯指标行。
-> Screenshots are from Feishu mobile. The panel is **always shown** (💭0 🔧0 still renders a panel with an empty-state note); thinking/tool panels stay collapsed during streaming. Expanding reveals thinking blocks (each expandable) interleaved with tool steps in real order — the agent's actual workflow. With `showReasoning`+`showTools` both false the panel is removed, leaving a pure-metrics footer.
+> 截图为桌面端飞书效果（沈阳天气查询：Fetch web page → Run command → 思考1/2/3 交错）。面板**无论有无思考/工具都显示**（💭0 🔧0 也有面板，展开提示"暂无思考与工具调用过程"）；思考/工具进行中默认折叠，点开看全文。`showReasoning`+`showTools` 双 false 时面板消失，只留纯指标行。
+> Desktop Feishu screenshot (Shenyang weather: Fetch → Run command → Thinking 1/2/3 interleaved). The panel is **always shown** (💭0 🔧0 renders an empty-state note); thinking/tool stay collapsed while streaming. With `showReasoning`+`showTools` both false the panel is removed, leaving a pure-metrics footer.
 
 ---
 
