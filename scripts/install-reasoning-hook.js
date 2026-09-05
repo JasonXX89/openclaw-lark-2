@@ -25,15 +25,59 @@ const os = require('os');
 
 const SCRIPT_DIR = __dirname;
 const HOOK_SRC = path.join(SCRIPT_DIR, 'reasoning-hook.js');
-// Hook 本体复制到用户目录下稳定位置（gateway.cmd 引用绝对路径，不依赖仓库位置）
-const HOOK_INSTALL_DIR = path.join(os.homedir(), '.openclaw', 'extensions', 'openclaw-lark-2', 'scripts');
-const HOOK_INSTALL_PATH = path.join(HOOK_INSTALL_DIR, 'reasoning-hook.js');
 const GATEWAY_CMD = path.join(os.homedir(), '.openclaw', 'gateway.cmd');
 // 检测已安装的 --import（兼容旧路径 openclaw-reasoning-hook.js 与仓库 reasoning-hook.js）
 const IMPORT_RE = /--import\s+"file:\/\/\/[^"]*reasoning-hook\.js"/;
-const HOOK_MARKER = 'reasoning-hook.js';
 
 function log(...args) { console.log(...args); }
+
+/**
+ * 自动定位插件运行目录（gateway 实际加载、hook 需复制到的位置）。
+ * 检测顺序：
+ *   1. 本脚本已在运行区内（__dirname 含 .openclaw/extensions）→ 直接用脚本父目录
+ *   2. 扫 ~/.openclaw/extensions/ 下含本插件 package.json name 的目录
+ *   3. 都找不到 → null（提示用户）
+ */
+function findPluginInstallDir() {
+    const pkgName = readPkgName();
+    // 情形 1：脚本就在扩展目录里跑（git 仓库 = 运行区，或用户 cd 进运行区执行）
+    if (SCRIPT_DIR.includes(path.join('.openclaw', 'extensions')) || SCRIPT_DIR.includes(path.sep + '.openclaw' + path.sep + 'extensions' + path.sep)) {
+        return path.dirname(SCRIPT_DIR); // <插件根>/scripts → 插件根
+    }
+    // 情形 2：扫 extensions 目录
+    const extRoot = path.join(os.homedir(), '.openclaw', 'extensions');
+    if (fs.existsSync(extRoot)) {
+        for (const entry of fs.readdirSync(extRoot)) {
+            if (entry.startsWith('.')) continue;
+            const pkgPath = path.join(extRoot, entry, 'package.json');
+            if (fs.existsSync(pkgPath)) {
+                try {
+                    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+                    if (pkg.name === pkgName) return path.join(extRoot, entry);
+                } catch { /* skip */ }
+            }
+        }
+    }
+    return null;
+}
+
+/** 读取本插件 package.json 的 name（用于匹配运行区目录）。 */
+function readPkgName() {
+    const pkgPath = path.join(SCRIPT_DIR, '..', 'package.json');
+    try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        return pkg.name;
+    } catch {
+        return null;
+    }
+}
+
+/** 计算 hook 实际安装路径（插件运行目录 + scripts/reasoning-hook.js）。 */
+function resolveHookInstallPath() {
+    const pluginDir = findPluginInstallDir();
+    if (!pluginDir) return null;
+    return path.join(pluginDir, 'scripts', 'reasoning-hook.js');
+}
 
 function findGatewayCmd() {
     // 候选：~/.openclaw/gateway.cmd (Windows 计划任务) / 其他常见位置
@@ -45,7 +89,8 @@ function findGatewayCmd() {
 }
 
 function status() {
-    const hookInstalled = fs.existsSync(HOOK_INSTALL_PATH);
+    const hookPath = resolveHookInstallPath();
+    const hookInstalled = hookPath && fs.existsSync(hookPath);
     const gw = findGatewayCmd();
     let cmdHasImport = false;
     let cmdText = '';
@@ -54,7 +99,8 @@ function status() {
         cmdHasImport = IMPORT_RE.test(cmdText);
     }
     log('=== reasoning hook 状态 ===');
-    log(`  hook 文件: ${hookInstalled ? '已安装 → ' + HOOK_INSTALL_PATH : '未安装'}`);
+    log(`  插件运行目录: ${hookPath ? path.dirname(path.dirname(hookPath)) : '未找到(请确认插件已安装到 ~/.openclaw/extensions/)'}`);
+    log(`  hook 文件: ${hookInstalled ? '已安装 → ' + hookPath : (hookPath ? '未安装' : '未找到目标位置')}`);
     log(`  gateway.cmd: ${gw ? gw : '未找到'}`);
     log(`  gateway.cmd 含 --import hook: ${cmdHasImport ? '是 (生效)' : '否'}`);
     if (gw && !cmdHasImport && cmdText.includes('index.js gateway')) {
@@ -64,11 +110,18 @@ function status() {
 }
 
 async function install() {
-    // 1. hook 本体 → 用户 openclaw 扩展目录（稳定绝对路径）
+    // 1. 定位插件运行目录 + hook 目标路径
     if (!fs.existsSync(HOOK_SRC)) {
         log(`ERROR: hook 源文件不存在: ${HOOK_SRC}`);
         process.exit(1);
     }
+    const HOOK_INSTALL_PATH = resolveHookInstallPath();
+    if (!HOOK_INSTALL_PATH) {
+        log('ERROR: 未找到插件运行目录。请确认本插件已安装到 ~/.openclaw/extensions/ 下，');
+        log('      或把脚本放到运行区插件的 scripts/ 目录里执行。');
+        process.exit(1);
+    }
+    const HOOK_INSTALL_DIR = path.dirname(HOOK_INSTALL_PATH);
     fs.mkdirSync(HOOK_INSTALL_DIR, { recursive: true });
     fs.copyFileSync(HOOK_SRC, HOOK_INSTALL_PATH);
     log(`hook 已复制 → ${HOOK_INSTALL_PATH}`);
@@ -118,9 +171,10 @@ async function uninstall() {
         }
     }
     // 2. 删除 hook 文件（保留源文件在仓库）
-    if (fs.existsSync(HOOK_INSTALL_PATH)) {
-        fs.unlinkSync(HOOK_INSTALL_PATH);
-        log('hook 文件已删除');
+    const hookPath = resolveHookInstallPath();
+    if (hookPath && fs.existsSync(hookPath)) {
+        fs.unlinkSync(hookPath);
+        log(`hook 文件已删除 → ${hookPath}`);
     }
     log('\n✅ 卸载完成。执行 `openclaw gateway restart` 生效。');
 }
