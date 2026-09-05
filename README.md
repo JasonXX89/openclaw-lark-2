@@ -17,7 +17,8 @@
 
 - **OpenClaw 2.0 原生适配**：SDK 导入路径 / 类型 / 运行时 API 全部对齐 2026.8.1 / Native 2.0 adaptation: SDK import paths, types, and runtime APIs aligned with 2026.8.1
 - **飞书 / Lark 全量能力**：IM 消息（含 CardKit 流式卡片）、文档（doc/wiki/drive）、多维表格（bitable）、日历、任务、电子表格等 / Full Feishu/Lark capabilities: IM messages (incl. CardKit streaming cards), docs (doc/wiki/drive), bitable, calendar, tasks, sheets, and more
-- **流式卡片体验优化**：打字机逐字打印（`streaming_config: print_frequency_ms 15 + print_strategy fast`），答案置顶、思考与工具调用收纳到单一底部折叠面板，面板标题一行内展示全部运行指标 / Polished streaming cards: typewriter-style printing (`streaming_config: print_frequency_ms 15 + print_strategy fast`), answer on top, reasoning & tool-calls folded into one bottom collapsible panel whose title carries all runtime metrics in one line
+- **流式卡片体验优化**：打字机逐字打印（`streaming_config: print_frequency_ms 15 + print_strategy fast`），答案置顶、`✅/❌/⏹️` 状态行永远在答案第一行；思考与工具调用收纳到单一底部折叠面板，面板标题一行内展示全部运行指标，**展开后按真实发生顺序展示工作流时间线**（`💭 思考1` → 🔧 工具步骤 → `💭 思考2` → …，思考块可再展开看全文） / Polished streaming cards: typewriter-style printing, answer on top with a `✅/❌/⏹️` status line always first; reasoning & tool-calls folded into one bottom collapsible panel whose title carries all runtime metrics in one line; **expanding reveals the real workflow timeline** (`💭 Thinking 1` → tool steps → `💭 Thinking 2` → …, each thinking block expandable for full text)
+- **思考/工具显示开关**：`channels.feishu.footer.showReasoning` / `showTools`（默认 `true`）——设 `false` 时对应面板全程隐藏，footer 退化为纯指标行（`🤖model 🎫tokens 📊context ⏱️elapsed`） / Reasoning/tool display switches: `channels.feishu.footer.showReasoning` / `showTools` (default `true`) — set `false` to hide the panel entirely and leave a pure-metrics footer
 - **内置 `ask_user` 工具按钮渲染**：通用 `ask_user` 问题渲染为带选项按钮的交互卡片，点击即解析；支持"其他答案"输入框表单；群聊中所有成员均可交互 / Built-in `ask_user` button rendering: generic `ask_user` questions become interactive cards with option buttons; supports an "Other answer" input form; every group member can interact
 - **工具调用动态展示**：流式卡片内实时展示 agent 正在调用的工具步骤，默认开启（`channels.feishu.toolUseDisplay.enabled: false` 可关） / Live tool-activity display inside streaming cards, on by default (disable via `channels.feishu.toolUseDisplay.enabled: false`)
 - **群聊流式卡片**：`channels.feishu.replyMode.group: "streaming"` 让群聊与私聊一样使用流式卡片 / Group streaming cards: `channels.feishu.replyMode.group: "streaming"` gives groups the same streaming-card experience as DMs
@@ -36,12 +37,12 @@
 
 ![完成态卡片](assets/screenshot-complete.png)
 
-底部折叠面板（收起态标题在一行内展示全部指标：`🤖model 💭n 🔧n ⏱️耗时 🎫tokens 📊上下文`，点击展开查看思考过程与工具明细）：
+底部折叠面板（收起态标题在一行内展示全部指标：`🤖model 💭n 🔧n ⏱️耗时 🎫tokens 📊上下文`，点击展开按工作流时间线查看思考过程与工具明细——`💭 思考1` → 🔧 工具 → `💭 思考2` → …）：
 
 ![折叠面板](assets/screenshot-collapsed-panel.png)
 
-> 截图为移动端飞书效果。面板收起时标题即全部运行指标，展开后显示思考过程与工具调用步骤。
-> Screenshots are from Feishu mobile. The collapsed panel title shows all runtime metrics in one line; expanding reveals the reasoning and tool-call steps.
+> 截图为移动端飞书效果。面板收起时标题即全部运行指标；展开后思考块（可再点开看全文）与工具步骤按真实发生顺序交错，忠实还原 agent 工作流。
+> Screenshots are from Feishu mobile. The collapsed panel title shows all runtime metrics in one line; expanding reveals thinking blocks (each expandable) interleaved with tool steps in real order — the agent's actual workflow.
 
 ---
 
@@ -49,6 +50,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
+| **2026.9.6** | 2026-09-06 | 工作流时间线展开区（折叠面板展开后 `💭 思考N` 与工具步骤按真实顺序交错，思考块可展开看全文）+ Segment 流式重构（答案单段、打字机增量防平方膨胀）+ 状态行置顶 + 审计加固（reasoning 计时 ×1000 修复、SSRF、ACL、日志脱敏等）+ reasoning hook 可选补丁（思考面板对普通消息生效）/ Workflow-timeline expansion (thinking blocks interleaved with tool steps in real order) + Segment streaming refactor (single answer segment, anti-blowup deltas) + status line on top + audit hardening + optional reasoning-hook patch |
 | **2026.9.4** | 2026-09-03 | 多图合并为一条富文本 post：`channels.feishu.multiImageMode`（默认 `post`，`sequential` 回退逐张；任一上传失败自动回退）+ 卡片样式重构（答案置顶、思考/工具收单一折叠面板、指标并入标题 `🤖mimo 💭n 🔧n ⏱️… 🎫… 📊…`、上下文窗口跨 provider 自动识别）/ Merged multi-image post + card style rework (multiImageMode; answer on top, unified collapsible panel, metrics inlined into title; multi-provider context-window auto-resolution) |
 
 ---
@@ -65,8 +67,8 @@ openclaw plugins install openclaw-lark-2-2026.9.4.tgz
 ### 从源码 / from source
 
 ```bash
-git clone https://github.com/JasonXX89/openclaw-lark.git
-cd openclaw-lark
+git clone https://github.com/JasonXX89/openclaw-lark-2.git
+cd openclaw-lark-2
 # 将整个目录同步（复制）到 OpenClaw 扩展目录，例如：
 # cp -r . ~/.openclaw/extensions/openclaw-lark-2
 # 然后重启 OpenClaw gateway 生效
@@ -102,6 +104,11 @@ cd openclaw-lark
         tokens: true,
         cache: true,
         context: true,
+        // 思考/工具显示开关（默认 true）：false 时对应面板全程隐藏，
+        // footer 退化为纯指标行 / reasoning & tool panel visibility
+        // (default true); false hides the panel → pure-metrics footer
+        showReasoning: true,
+        showTools: true,
       },
     },
   },
