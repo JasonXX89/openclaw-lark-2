@@ -284,6 +284,7 @@ function buildCardContent(state, data = {}) {
                 isAborted: data.isAborted,
                 footer: data.footer,
                 footerMetrics: data.footerMetrics,
+                workflowTimeline: data.workflowTimeline,
             });
         case 'confirm':
             return buildConfirmCard(data.confirmData);
@@ -336,7 +337,7 @@ function buildStreamingCard(partialText, params = {}) {
     };
 }
 function buildCompleteCard(params) {
-    const { text, elapsedMs, isError, reasoningText, reasoningElapsedMs, toolUseSteps, toolUseTitleSuffix, toolUseElapsedMs, showToolUse = true, isAborted, footer, footerMetrics, } = params;
+    const { text, elapsedMs, isError, reasoningText, reasoningElapsedMs, toolUseSteps, toolUseTitleSuffix, toolUseElapsedMs, showToolUse = true, isAborted, footer, footerMetrics, workflowTimeline, } = params;
     const elements = [];
     // 统一折叠面板（薯条样式）：思考 + 工具调用合并到底部一个面板，点击展开
     // 短回复豁免（fry-cards unified_panel_min_duration 语义）：有思考、无工具、总耗时
@@ -419,25 +420,57 @@ function buildCompleteCard(params) {
             titleParts.push(elapsedZh);
         }
         const headerText = [headerParts.join('  '), ...titleParts].filter(Boolean).join('  ');
-        // 外层统一面板展开后（对齐薯条 fry-cards）：💭 思考是嵌套子折叠面板，
-        // 🔧 工具步骤直接平铺（无工具子面板——与薯条 build_complete_card 一致）。
+        // 外层统一面板展开后：默认（无 timeline）保留薯条样式——💭 思考是嵌套
+        // 子折叠面板，🔧 工具步骤直接平铺。有 workflowTimeline（controller 从
+        // SegmentState 提取的保序过程）时，按真实发生顺序交错展示：
+        //   💭 思考1（子折叠全文）→ 🔧 工具步骤 → 💭 思考2 → 🔧 工具步骤 …
         const unifiedChildren = [];
-        if (hasReasoning) {
-            // 子折叠标题带思考耗时（有值显示「思考了 Xs」，无则通用「思考过程」）
-            const rsnElapsedKnown = typeof reasoningElapsedMs === 'number' && reasoningElapsedMs > 0;
-            const rsnZhTitle = rsnElapsedKnown ? `💭 思考了 ${formatElapsed(reasoningElapsedMs)}` : '💭 思考过程';
-            const rsnEnTitle = rsnElapsedKnown ? `💭 Thought for ${formatElapsed(reasoningElapsedMs)}` : '💭 Reasoning';
-            unifiedChildren.push(buildCompleteSubPanel({
-                titleI18n: { zh_cn: rsnZhTitle, en_us: rsnEnTitle },
-                children: [{
-                    tag: 'markdown',
-                    content: reasoningTextFinal,
-                    text_size: 'notation',
-                }],
-            }));
+        const timeline = Array.isArray(workflowTimeline) ? workflowTimeline : [];
+        if (timeline.length > 0) {
+            const stepsArr = Array.isArray(toolUseSteps) ? toolUseSteps : [];
+            for (const entry of timeline) {
+                if (entry.kind === 'reasoning') {
+                    const rsnText = entry.text?.trim();
+                    if (!rsnText) continue;
+                    // 思考标题带序号、不带耗时秒（Jason 定稿）：💭 思考1 / 💭 思考2 …
+                    unifiedChildren.push(buildCompleteSubPanel({
+                        titleI18n: {
+                            zh_cn: `💭 思考${entry.index ?? 1}`,
+                            en_us: `💭 Thinking ${entry.index ?? 1}`,
+                        },
+                        children: [{
+                            tag: 'markdown',
+                            content: rsnText,
+                            text_size: 'notation',
+                        }],
+                    }));
+                }
+                else if (entry.kind === 'tools') {
+                    const from = Math.max(0, entry.from ?? 0);
+                    const to = Math.min(stepsArr.length, entry.to ?? stepsArr.length);
+                    for (let i = from; i < to; i++) {
+                        const step = stepsArr[i];
+                        if (step) {
+                            unifiedChildren.push(...buildToolUseStepElements(step));
+                        }
+                    }
+                }
+            }
         }
-        if (hasTools) {
-            unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
+        else if (hasReasoning || hasTools) {
+            if (hasReasoning) {
+                unifiedChildren.push(buildCompleteSubPanel({
+                    titleI18n: { zh_cn: '💭 思考过程', en_us: '💭 Reasoning' },
+                    children: [{
+                        tag: 'markdown',
+                        content: reasoningTextFinal,
+                        text_size: 'notation',
+                    }],
+                }));
+            }
+            if (hasTools) {
+                unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
+            }
         }
         elements.push({
             tag: 'collapsible_panel',

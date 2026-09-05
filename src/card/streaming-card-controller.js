@@ -662,6 +662,7 @@ class StreamingCardController {
                     isError: true,
                     footer: this.deps.resolvedFooter,
                     footerMetrics,
+                    workflowTimeline: (0, complete_replay_1.buildWorkflowTimeline)(this.segmentState, toolUseDisplay?.stepCount ?? 0),
                 });
                 if (errorEffectiveCardId) {
                     await this.closeStreamingAndUpdate(errorEffectiveCardId, errorCard, 'onError');
@@ -751,6 +752,7 @@ class StreamingCardController {
                     elapsedMs: this.elapsed(),
                     footer: this.deps.resolvedFooter,
                     footerMetrics,
+                    workflowTimeline: (0, complete_replay_1.buildWorkflowTimeline)(this.segmentState, idleToolUseDisplay?.stepCount ?? 0),
                 });
                 if (idleEffectiveCardId) {
                     const seqBeforeUpdate = this.cardKit.cardKitSequence;
@@ -864,6 +866,7 @@ class StreamingCardController {
                     isAborted: true,
                     footer: this.deps.resolvedFooter,
                     footerMetrics,
+                    workflowTimeline: (0, complete_replay_1.buildWorkflowTimeline)(this.segmentState, abortToolUseDisplay?.stepCount ?? 0),
                 });
                 await this.closeStreamingAndUpdate(effectiveCardId, abortCardContent, 'abortCard');
                 log.info('abortCard completed', { effectiveCardId });
@@ -882,6 +885,7 @@ class StreamingCardController {
                     isAborted: true,
                     footer: this.deps.resolvedFooter,
                     footerMetrics,
+                    workflowTimeline: (0, complete_replay_1.buildWorkflowTimeline)(this.segmentState, abortToolUseDisplay?.stepCount ?? 0),
                 });
                 await (0, send_1.updateCardFeishu)({
                     cfg: this.deps.cfg,

@@ -51,6 +51,56 @@ function replayTerminalContent(state) {
     };
 }
 
+/**
+ * 从 SegmentState 构建「工作流时间线」（纯函数）—— 供终态折叠面板展开后
+ * 按真实发生顺序交错展示 思考块 / 工具步骤（💭 思考1 3s → 🔧 工具1 →
+ * 💭 思考2 5s → 🔧 工具2 …）。
+ *
+ * 段模型天然保序：遍历 segments 时
+ *   - REASONING 段 → { kind: 'reasoning', index, elapsedMs, text }
+ *   - TOOL 段     → { kind: 'tools', index, from, to }（覆盖 [tool_offset,
+ *     tool_end_offset) 区间，即该工具轮次实际包含的第 from+1..to 个工具步骤；
+ *     未终结段用 totalToolSteps 收尾）
+ *   - ANSWER 段   → 跳过（它是正文，不属于过程时间线）
+ *
+ * @param {import('./segments.js').SegmentState} state
+ * @param {number} [totalToolSteps=0] 累计工具步骤数（收尾未终结 tool 段用）
+ * @returns {Array<{kind:'reasoning'|'tools', index:number, elapsedMs?:number,
+ *    text?:string, from?:number, to?:number}>} 有序时间线条目
+ */
+function buildWorkflowTimeline(state, totalToolSteps = 0) {
+    const timeline = [];
+    let reasoningSeq = 0;
+    let toolGroupSeq = 0;
+    for (const seg of state?.segments ?? []) {
+        if (seg.type === SegmentType.REASONING) {
+            reasoningSeq += 1;
+            timeline.push({
+                kind: 'reasoning',
+                index: reasoningSeq,
+                elapsedMs: typeof seg.elapsed_ms === 'number' && seg.elapsed_ms > 0 ? seg.elapsed_ms : undefined,
+                text: seg.text || '',
+            });
+        }
+        else if (seg.type === SegmentType.TOOL) {
+            toolGroupSeq += 1;
+            const from = typeof seg.tool_offset === 'number' ? seg.tool_offset : 0;
+            const end = typeof seg.tool_end_offset === 'number' && seg.tool_end_offset > 0
+                ? seg.tool_end_offset
+                : totalToolSteps;
+            timeline.push({
+                kind: 'tools',
+                index: toolGroupSeq,
+                from,
+                to: Math.max(from, end),
+            });
+        }
+        // ANSWER 段跳过
+    }
+    return timeline;
+}
+
 module.exports = {
     replayTerminalContent,
+    buildWorkflowTimeline,
 };
