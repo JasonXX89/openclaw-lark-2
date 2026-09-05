@@ -144,23 +144,92 @@ cd openclaw-lark-2
 
 ## 可选补丁：让思考面板对普通消息生效（Reasoning hook patch）
 
-**现象**：OpenClaw 默认在普通消息（不带 `/reasoning stream`）时不把思考流推给渠道插件——即使模型在思考、`reasoningDefault: "stream"` 已配置，飞书卡片也没有 💭 思考面板。
+> **这个补丁是给谁用的**：想让飞书卡片出现 💭 思考面板、但**不想每条消息都手动带 `/reasoning stream`** 的人。
+> 插件本身不带思考面板门控——它只是忠实显示 OpenClaw 推过来的推理流；OpenClaw 是否推，取决于下面的 gate。
 
-**原因**：OpenClaw dist 里有一道授权 gate——非授权发送者的普通消息会把 `resolvedReasoningLevel` 压成 `"off"`，导致 reasoning 不推送。这是 OpenClaw 主程序行为，本插件无法通过配置绕过。
+### 1. 现象 / 问题
 
-**补丁做法**：`scripts/reasoning-hook.js` 用 Node ESM loader hook（`module.registerHooks`，Node 22.15+/23+）在内存里移除该 gate——磁盘 dist 文件保持原版，`npm update -g openclaw` **不会**冲掉。安装脚本自动往 `~/.openclaw/gateway.cmd` 加 `--import`。
+OpenClaw 默认在**普通消息**（不带 `/reasoning stream` 指令）时**不把思考流推给渠道插件**——即使：
+- 模型实际在思考（`deepseek-reasoner` 这类推理模型、或配了 thinking 的模型）
+- `openclaw.json` 里已设 `reasoningDefault: "stream"`
+
+结果：飞书卡片**只有工具调用、没有 💭 思考面板**。必须每条消息手动加 `/reasoning stream` 才出思考。
+
+### 2. 原因（为什么插件自己解决不了）
+
+OpenClaw 主程序 dist 里有一道**授权 gate**：非授权发送者的普通消息会把 `resolvedReasoningLevel` 强制压成 `"off"`，于是推理流根本不发到插件。这是 OpenClaw 主程序行为——**在插件配置层无法绕过**，只能补丁 OpenClaw 本体。
+
+### 3. 补丁原理（读一下，理解它干了什么）
+
+`scripts/reasoning-hook.js` 是一个 **Node ESM loader hook**（`module.registerHooks`，要求 Node 22.15+ / 23+）：
+- 在 OpenClaw 加载 `dist/get-reply-*.js` 的**内存阶段**，把那行 `if (reasoningUsesConfiguredDefault && !canUseReasoningState) resolvedReasoningLevel = "off";` 替换成注释
+- **磁盘上的 dist 文件保持原版** → `npm update -g openclaw`、重新安装都**不会冲掉**（hook 按 `get-reply-*.js` 文件名匹配，不依赖具体 hash，OpenClaw 升级后依然生效）
+- 安装脚本自动往 `~/.openclaw/gateway.cmd` 的 node 启动行插入 `--import "file:///.../reasoning-hook.js"`，让 gateway 每次启动都加载 hook
+
+### 4. 前置条件（先确认，缺一不可）
+
+| 条件 | 检查方法 |
+|---|---|
+| Node ≥ 22.15 | `node --version` |
+| 插件已安装到运行区 | `~/.openclaw/extensions/` 下能找到本插件目录 |
+| OpenClaw 以 gateway 模式运行（Windows 计划任务/`gateway.cmd`） | 存在 `~/.openclaw/gateway.cmd` |
+| 目标 agent 已开流式思考 | `openclaw.json` → `agents.entries.<agent>.reasoningDefault = "stream"` |
+
+> Linux/macOS 用户：gateway 启动命令不同（不是 `gateway.cmd`），本脚本只支持 Windows gateway.cmd。请手动在启动命令加 `--import "file:///绝对路径/scripts/reasoning-hook.js"`。
+
+### 5. 安装（在插件仓库根目录执行）
 
 ```bash
-# 在插件仓库根目录执行
-node scripts/install-reasoning-hook.js status     # 查看是否已启用
-node scripts/install-reasoning-hook.js install    # 安装（复制 hook + 改 gateway.cmd）
-node scripts/install-reasoning-hook.js uninstall  # 卸载（还原 gateway.cmd）
+# ① 先看当前状态（建议先跑）
+node scripts/install-reasoning-hook.js status
+
+# ② 安装：复制 hook 到运行区 + 给 gateway.cmd 加 --import
+node scripts/install-reasoning-hook.js install
+
+# ③ 重启网关（让 --import 生效）
+openclaw gateway restart
 ```
 
-安装后重启网关：`openclaw gateway restart`，并确认 `openclaw.json` 里目标 agent 已配 `reasoningDefault: "stream"`。重启后日志出现 `[reasoning-hook] registered` 即生效；发普通思考题（不带 `/reasoning stream`）应能看到 💭 面板。
+脚本是**幂等**的：重复 install 不会重复加 `--import`；gateway.cmd 已含时自动跳过。
 
-> 仅影响"是否把思考流推给插件"，不改模型行为/权限。单人自用安全损失≈0。
-> Optional: reasoning panel for plain messages. Install only if you want 💭 panels without appending `/reasoning stream` to every message.
+### 6. 验证是否生效（三步）
+
+1. **看日志**：`%TEMP%/openclaw/openclaw-*.log` 里应出现
+   `[reasoning-hook] registered (ESM loader)`；首次加载 get-reply 时还会出现
+   `[reasoning-hook] patched get-reply-*.js (in-memory)`
+2. **跑 status**：`node scripts/install-reasoning-hook.js status` → `gateway.cmd 含 --import hook: 是 (生效)`
+3. **发消息实测**：飞书发一条**不带** `/reasoning stream` 的思考题（如"1+2+…+100 等于多少？请一步步推理"）→ 卡片出现 💭 面板即生效
+
+### 7. 卸载 / 回滚
+
+```bash
+node scripts/install-reasoning-hook.js uninstall   # 移除 --import + 删 hook 文件
+openclaw gateway restart                            # 重启生效
+```
+
+### 8. 常见问题 FAQ
+
+| 现象 | 原因 / 解决 |
+|---|---|
+| 日志没有 `[reasoning-hook] registered` | gateway 没重启；或启动命令没带 `--import`（跑 `status` 看 `含 --import hook` 是否为"是"） |
+| 装了补丁仍不显示 💭 | ① agent 没配 `reasoningDefault: "stream"` ② 模型本身不产生思考（如纯文本模型） ③ `channels.feishu.footer.showReasoning` 设了 `false`（那是插件显示层开关，见下方说明） |
+| `npm update -g openclaw` 后要重装吗 | **不用**。hook 在内存注入，磁盘 dist 原版，升级后依然生效 |
+| 影响安全吗 | 仅把"思考流是否推给插件"放开，不改模型行为/权限边界。单人自用风险≈0；多用户场景需自行评估（思考内容会经渠道插件展示） |
+| 和 `showReasoning` 开关什么关系 | 两层串行：本补丁管**上游**（OpenClaw 是否推思考流）；`footer.showReasoning` 管**下游**（插件是否显示）。两个都"开"才有 💭 面板 |
+
+### 9. 与插件配置的关系（重要）
+
+- 补丁只解决"思考流能不能推到插件"
+- 推过来之后**显不显示**，由插件配置决定：
+  ```json5
+  channels.feishu.footer: {
+    showReasoning: true,   // false = 收到思考流也丢弃，不显示 💭 面板
+    showTools: true,       // false = 不显示 🔧 工具面板
+  }
+  ```
+  想要 💭 面板 = 补丁(推) + `showReasoning: true`(显示) 缺一不可。
+
+> Optional patch: reasoning panel for plain messages without appending `/reasoning stream` every time. Install only if you want 💭 panels on ordinary messages. Windows gateway.cmd only.
 
 ---
 
