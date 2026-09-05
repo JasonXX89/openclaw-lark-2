@@ -177,10 +177,25 @@ OpenClaw 主程序 dist 里有一道**授权 gate**：非授权发送者的普�
 
 > Linux/macOS 用户：gateway 启动命令不同（不是 `gateway.cmd`），本脚本只支持 Windows gateway.cmd。请手动在启动命令加 `--import "file:///绝对路径/scripts/reasoning-hook.js"`。
 
-### 5. 安装（在插件仓库根目录执行）
+### 5. 安装
+
+**在哪里执行**：脚本不依赖当前目录——它按**脚本自身位置**找插件运行区（`scripts/` 的上一级要有 `package.json`）。所以下面两种都行，**推荐第一种**（路径最稳）：
+
+```bash
+# ✅ 推荐：直接用运行区里的脚本（插件实际加载位置）
+cd ~/.openclaw/extensions/openclaw-lark-2
+node scripts/install-reasoning-hook.js status
+
+# 或：在 git 仓库根目录跑（脚本会按 package.json name 自动匹配运行区）
+cd <openclaw-lark-2 仓库目录>
+node scripts/install-reasoning-hook.js status
+```
+
+完整步骤：
 
 ```bash
 # ① 先看当前状态（建议先跑）
+cd ~/.openclaw/extensions/openclaw-lark-2
 node scripts/install-reasoning-hook.js status
 
 # ② 安装：复制 hook 到运行区 + 给 gateway.cmd 加 --import
@@ -189,6 +204,8 @@ node scripts/install-reasoning-hook.js install
 # ③ 重启网关（让 --import 生效）
 openclaw gateway restart
 ```
+
+> 前提：运行区目录名不一定是 `openclaw-lark-2`——先 `ls ~/.openclaw/extensions/` 确认实际名字（可能是 `openclaw-lark-2` 或 `openclaw-lark-3` 等），cd 进那个目录执行。
 
 脚本是**幂等**的：重复 install 不会重复加 `--import`；gateway.cmd 已含时自动跳过。
 
