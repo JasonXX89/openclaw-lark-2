@@ -570,13 +570,12 @@ class StreamingCardController {
                 ? Date.now() - this.reasoning.reasoningStartTime
                 : 0;
         }
-        // 检测回复边界：文本长度缩短 → 新回复开始
+        // 检测回复边界：文本长度缩短 → 上一段完整，基线重置（把上帧并入 prefix，
+        // 下帧起是新段）。这只是基线重置信号，不代表之后每帧都是整段新回复。
         if (this.text.lastPartialText && text.length < this.text.lastPartialText.length) {
             this.text.streamingPrefix += (this.text.streamingPrefix ? '\n\n' : '') + this.text.lastPartialText;
+            this.text.lastPartialText = '';
         }
-        // 计算本帧相对上一帧的 answer 增量（onPartialReply 的 text 是累计增长的，
-        // 每帧 = 上一帧前缀 + 新 delta）。delta 喂给 segmentState 的 answer 段，
-        // 供增量渲染的文本层 streamCardContent 使用（保持打字机语义）。
         const prevPartialText = this.text.lastPartialText;
         this.text.lastPartialText = text;
         this.text.accumulatedText = this.text.streamingPrefix ? this.text.streamingPrefix + '\n\n' + text : text;
@@ -586,18 +585,17 @@ class StreamingCardController {
             return;
         }
         // 喂 answer 增量到 segmentState（增量渲染的唯一文本来源）。
-        // 边界场景（新回复 streamingPrefix 出现）：上一帧已并入 prefix，本帧是全新答复，
-        // 单独作为一个新 answer 段；否则 delta = 本帧累计超出上一帧的部分。
+        // delta 推断：以「内容前缀增长」为准——text 是累计快照，本帧若以上帧为
+        // 前缀则增量 = 超出部分（正常打字机）；若上帧基线被重置（lastPartialText
+        // 刚清空）或首帧，本帧整段是新内容；绝不在 streamingPrefix 存在时整段
+        // 喂入——否则每帧都整段重复叠加（prefix 一旦设置，text 仍逐字增长，
+        // 每次整段喂 → answer 段平方膨胀 → 卡片"回复好几遍"）。
         let answerDelta;
-        if (this.text.streamingPrefix && prevPartialText) {
-            // 新回复已从 prefix 重新开始：本帧整段为新 answer
-            answerDelta = text;
-        }
-        else if (prevPartialText && text.startsWith(prevPartialText)) {
+        if (prevPartialText && text.startsWith(prevPartialText)) {
             answerDelta = text.slice(prevPartialText.length);
         }
         else {
-            // 首帧（无上一帧）或非前缀增长：整帧作为新增 delta
+            // 首帧（prev 空）、基线刚重置、或非前缀增长：整帧作为本段内容
             answerDelta = text;
         }
         if (answerDelta) {
@@ -610,12 +608,17 @@ class StreamingCardController {
                 prefix: Boolean(this.text.streamingPrefix),
                 deltaLen2: answerDelta.length,
             });
-            if (this.text.streamingPrefix && prevPartialText) {
-                // 新回复段（工具/思考后模型重新输出）：分段拼接，避免与上段粘连
+            // 区分两种喂入：
+            // ① 前缀增长算出的增量（answerDelta 是 text 超出 prev 的部分）→ 无缝接续
+            // ② 整帧喂入（首帧 / 基线重置后的新段首帧 / 非前缀增长）→ 若已有答案
+            //    内容则 \n\n 分段（新回复段），否则直接建段
+            const isIncremental = prevPartialText && text.startsWith(prevPartialText);
+            if (!isIncremental && this.segmentState.answerText) {
+                // 新回复段（工具/思考后模型重新输出 / 基线重置）：分段拼接
                 this.segmentState.onDeliverText(answerDelta);
             }
             else {
-                // 正常流式增量：无缝接续到唯一 answer 段
+                // 正常流式增量或首个 answer：无缝接续 / 建段
                 this.segmentState.onAnswerDelta(answerDelta);
             }
         }
