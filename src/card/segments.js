@@ -170,16 +170,39 @@ class SegmentState {
         this._newReasoning(text);
     }
 
-    /** answer delta：同型追加否则新建。 */
+    /** answer delta：合并进最近一个 answer 段（无论中间隔了 reasoning/tool）。
+     *  段模型保证 answer 永远只有一段（或零段）——避免工具间多段文本在卡片上
+     *  显示成多个答案块（旧版 accumulatedText 单流不会割裂，段模型曾忠实分多段
+     *  → 用户看到"回复好几遍"）。 */
     onAnswerDelta(text) {
         if (!text) return;
-        const last = this.segments[this.segments.length - 1];
-        if (last && last.type === SegmentType.ANSWER) {
-            last.text += text;
-            last.dirty = true;
-        } else {
-            this._newAnswer(text);
+        for (let i = this.segments.length - 1; i >= 0; i--) {
+            const s = this.segments[i];
+            if (s.type === SegmentType.ANSWER) {
+                s.text += text;
+                s.dirty = true;
+                return;
+            }
         }
+        // 从未有过 answer 段 → 新建（此时无跨型问题）
+        this._newAnswer(text);
+    }
+
+    /** deliver 整段文本：作为新的一段并入唯一 answer 段，段间以 \n\n 分隔。
+     *  语义与 onAnswerDelta（增量接续）不同：这是模型在新的一轮输出的完整
+     *  段落（工具调用之间、或终态 deliver），须与已有答案内容分段拼接。 */
+    onDeliverText(text) {
+        if (!text) return;
+        for (let i = this.segments.length - 1; i >= 0; i--) {
+            const s = this.segments[i];
+            if (s.type === SegmentType.ANSWER) {
+                if (s.text) s.text += '\n\n';
+                s.text += text;
+                s.dirty = true;
+                return;
+            }
+        }
+        this._newAnswer(text);
     }
 
     /** 工具轮次事件：新 tool 段（或终结前序 tool 段）。toolStepCount = 累计步骤数。 */

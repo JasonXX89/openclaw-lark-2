@@ -20,12 +20,12 @@ function feedPureAnswer(s) {
     return s;
 }
 
-// 多轮 answer 段（回复边界导致的新 answer 段）
+// 多轮 answer 段（工具/思考后的新回复段 — 真实 controller 走 onDeliverText 分段拼接）
 function feedMultiAnswer(s) {
     s.onAnswerDelta('第一段回复。');
-    // 模拟跨型：reasoning 夹在中间再回到 answer → 产生第二个 answer 段
+    // 模拟跨型：reasoning 夹在中间再回到 answer → onDeliverText 分段并入单 answer 段
     s.setReasoningSnapshot('中间又想了想');
-    s.onAnswerDelta('第二段回复。');
+    s.onDeliverText('第二段回复。');
     return s;
 }
 
@@ -54,10 +54,10 @@ describe('replayTerminalContent — answer 重放', () => {
         expect(hasAnswer).toBe(true);
     });
 
-    it('跨型产生的多 answer 段：按出现顺序 join(\\n\\n)', () => {
+    it('跨型（reasoning 夹心）后的新回复：分段并入单 answer 段', () => {
         const s = feedMultiAnswer(new SegmentState());
         const answerSegs = s.segments.filter((x) => x.type === SegmentType.ANSWER);
-        expect(answerSegs).toHaveLength(2); // 确认确实产生了两个 answer 段
+        expect(answerSegs).toHaveLength(1); // answer 永远单段
         const { answerText } = replayTerminalContent(s);
         expect(answerText).toBe('第一段回复。\n\n第二段回复。');
     });
@@ -95,7 +95,7 @@ describe('replayTerminalContent — reasoning 重放', () => {
         s.setReasoningSnapshot('第一轮思考');
         s.onAnswerDelta('第一轮回答');
         s.setReasoningSnapshot('第二轮思考');
-        s.onAnswerDelta('第二轮回答');
+        s.onDeliverText('第二轮回答');
         const reasoningSegs = s.segments.filter((x) => x.type === SegmentType.REASONING);
         expect(reasoningSegs).toHaveLength(2);
         const { reasoningText, answerText } = replayTerminalContent(s);

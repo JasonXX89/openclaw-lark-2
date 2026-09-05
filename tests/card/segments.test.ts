@@ -9,18 +9,22 @@ import {
 } from '../../src/card/segments.js';
 
 describe('SegmentState 事件顺序', () => {
-    it('reasoning → answer → tool 按到达顺序追加', () => {
+    it('reasoning → answer → tool → answer：同类 answer 合并为单段', () => {
         const s = new SegmentState();
         s.onReasoningDelta('思考1');
         s.onAnswerDelta('回答1');
         s.onToolEvent(1);
         s.onAnswerDelta('回答2');
+        // 段顺序保留三类，但 answer 永远合并为单段（视觉连续，避免工具间
+        // 多段文本在卡片上显示成多个答案块）
         expect(s.segments.map((x) => x.type)).toEqual([
             SegmentType.REASONING,
             SegmentType.ANSWER,
             SegmentType.TOOL,
-            SegmentType.ANSWER,
         ]);
+        const answers = s.segments.filter((x) => x.type === SegmentType.ANSWER);
+        expect(answers).toHaveLength(1);
+        expect(answers[0].text).toBe('回答1回答2');
     });
 
     it('同型 reasoning 增量追加不新建段', () => {

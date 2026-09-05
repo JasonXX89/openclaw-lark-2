@@ -389,14 +389,35 @@ class StreamingCardController {
         const answerText = split.answerText ?? text;
         // 累积 deliver 文本用于最终卡片
         this.text.completedText += (this.text.completedText ? '\n\n' : '') + answerText;
-        // 无流式数据时（deliver-only 运行，模型整块返回），用 deliver 文本喂给
-        // answer 段作为渲染来源；有流式数据时 answer 段已由 onPartialReply 的
-        // 增量喂满，onDeliver 只补 completedText，不再追加（否则终态文本翻倍）。
-        if (!this.text.lastPartialText && !this.text.streamingPrefix) {
-            this.segmentState.onAnswerDelta(answerText);
-            this.text.accumulatedText += (this.text.accumulatedText ? '\n\n' : '') + answerText;
-            this.text.streamingPrefix = this.text.accumulatedText;
-            await this.throttledCardUpdate();
+        // deliver 是整段交付的权威文本。answer 段只补 deliver 相对已有流式内容的
+        // 增量：若 partial 只覆盖开头（工具后模型整块 deliver 完整答案——常见于
+        // 工具任务），deliver 的超出部分必须补入，否则卡片答案缺失（只有开头几
+        // 字）；若流式已完整覆盖（answer 段文本已含 deliver 全文），则跳过防重复。
+        const currentAnswer = this.segmentState.answerText || '';
+        if (answerText && !currentAnswer.includes(answerText)) {
+            let toFeed = answerText;
+            let common = 0;
+            if (currentAnswer) {
+                // 去重：deliver 通常以流式已喂内容为前缀开头（partial 覆盖了答案
+                // 开头，deliver 是完整版），剥离共同前缀，只补 deliver 新内容。
+                const maxC = Math.min(currentAnswer.length, answerText.length);
+                while (common < maxC && answerText[common] === currentAnswer[common]) {
+                    common += 1;
+                }
+                toFeed = common >= answerText.length ? '' : answerText.slice(common);
+            }
+            if (toFeed) {
+                if (common > 0 || !currentAnswer) {
+                    // 续写（deliver 以已显示内容开头）：无缝接续
+                    this.segmentState.onAnswerDelta(toFeed);
+                } else {
+                    // 全新段落（无前缀重叠）：\n\n 分段
+                    this.segmentState.onDeliverText(toFeed);
+                }
+                this.text.accumulatedText += (this.text.accumulatedText ? '\n\n' : '') + toFeed;
+                this.text.streamingPrefix = this.text.accumulatedText;
+                await this.throttledCardUpdate();
+            }
         }
     }
     async onReasoningStream(payload) {
@@ -580,7 +601,23 @@ class StreamingCardController {
             answerDelta = text;
         }
         if (answerDelta) {
-            this.segmentState.onAnswerDelta(answerDelta);
+            // [SEG-DEBUG3] payload 结构诊断: delta 字段是否存在 + 本帧 text/delta 长度
+            log.info('[SEG-DEBUG3] partial', {
+                hasDelta: typeof payload.delta === 'string',
+                deltaLen: typeof payload.delta === 'string' ? payload.delta.length : 0,
+                textLen: text.length,
+                prevLen: prevPartialText ? prevPartialText.length : 0,
+                prefix: Boolean(this.text.streamingPrefix),
+                deltaLen2: answerDelta.length,
+            });
+            if (this.text.streamingPrefix && prevPartialText) {
+                // 新回复段（工具/思考后模型重新输出）：分段拼接，避免与上段粘连
+                this.segmentState.onDeliverText(answerDelta);
+            }
+            else {
+                // 正常流式增量：无缝接续到唯一 answer 段
+                this.segmentState.onAnswerDelta(answerDelta);
+            }
         }
         await this.ensureCardCreated();
         if (!this.shouldProceed('onPartialReply.postCreate'))
