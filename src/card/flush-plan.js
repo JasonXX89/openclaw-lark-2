@@ -95,26 +95,26 @@ function planSegmentFlush({ state, toolSteps = [], consumeCreated = true } = {})
 
         // ---- tool ----
         if (seg.type === SegmentType.TOOL) {
-            if (!seg.created) {
-                const start = seg.tool_offset;
-                const end = seg.tool_end_offset && seg.tool_end_offset > 0
-                    ? seg.tool_end_offset
-                    : stepsArr.length;
-                const slice = stepsArr.slice(start, end);
-                // 新 tool 段：整体 add（折叠面板 + 该段区间步骤）
-                actions.push(buildAddToolAction(seg, slice, 0));
-                if (consumeCreated) seg.created = true;
-                if (consumeCreated) seg.dirty = false;
+            // tool_panel 是累计视图：内容 = 当前全部工具步骤（stepsArr 由调用方
+            // 传入实时全量列表）。tool_panel 是共享单例——只允许 add 一次，之后
+            // 所有更新走 partial_update（否则 Duplicate ID 300301）。
+            if (!state.tool_panel_created) {
+                actions.push(buildAddToolAction(seg, stepsArr, 0));
+                if (consumeCreated) {
+                    state.tool_panel_created = true;
+                    seg.created = true;
+                    seg.dirty = false;
+                }
             }
-            else if (seg.dirty) {
-                // 已创建 tool 段有更新：局部更新面板内容（避免整卡 replace）
-                const start = seg.tool_offset;
-                const end = seg.tool_end_offset && seg.tool_end_offset > 0
-                    ? seg.tool_end_offset
-                    : stepsArr.length;
-                const slice = stepsArr.slice(start, end);
-                actions.push(buildToolUpdateAction(seg.el_id, slice, 0));
-                if (consumeCreated) seg.dirty = false;
+            else if (seg.dirty || !seg.created) {
+                // 面板已存在：整面板内容更新（partial_update 会替换 elements）。
+                // 覆盖：① 已建 tool 段有新步骤（dirty）；② 多轮工具调用的新
+                // tool 段（共享 tool_panel，不再 add，直接刷全量步骤）。
+                actions.push(buildToolUpdateAction(seg.el_id, stepsArr, 0));
+                if (consumeCreated) {
+                    seg.created = true;
+                    seg.dirty = false;
+                }
             }
             continue;
         }

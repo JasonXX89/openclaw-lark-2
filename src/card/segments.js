@@ -62,6 +62,9 @@ class SegmentState {
         this.segments = [];
         // reasoning 独立面板上限，超出合并进最后一个（防 thinking/tool 交替爆炸）
         this.max_reasoning_panels = maxReasoningPanels;
+        // tool 面板是否已在飞书卡上 add 过（所有 tool 段共享 tool_panel 元素，
+        // 只允许 add 一次，后续更新必须走 partial_update，否则 Duplicate ID）
+        this.tool_panel_created = false;
     }
 
     _nextElId(prefix) {

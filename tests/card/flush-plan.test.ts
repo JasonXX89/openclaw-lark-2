@@ -107,7 +107,7 @@ describe('planSegmentFlush — tool 段', () => {
         { name: 'write', status: 'running' },
     ];
 
-    it('未终结 tool 段创建：渲染 tool_offset 到剩余全部', () => {
+    it('首次 tool 段创建：add 面板（tool_panel_created=true），内容为全部步骤', () => {
         const s = new SegmentState();
         s.onToolEvent(1); // 第一个工具步骤，tool_offset=0
         s.segments.forEach((seg) => {
@@ -118,21 +118,43 @@ describe('planSegmentFlush — tool 段', () => {
         const { actions } = planSegmentFlush({ state: s, toolSteps: steps });
         const toolAct = actions.find((a) => a.action === 'add_elements');
         expect(toolAct).toBeTruthy();
+        expect(s.tool_panel_created).toBe(true);
         const panel = toolAct.params.elements[0];
         expect(panel.tag).toBe('collapsible_panel');
-        // slice = [0, 3)
+        // 内容 = 全部 3 步骤
         expect(panel.elements.length).toBeGreaterThanOrEqual(3);
     });
 
-    it('已终结 tool 段创建：只渲染其区间 [tool_offset, tool_end_offset)', () => {
+    it('面板已创建后新 tool 段出现：不再 add（防 Duplicate ID），改 partial_update', () => {
+        const s = new SegmentState();
+        s.onToolEvent(1); // 第一轮工具
+        planSegmentFlush({ state: s, toolSteps: steps.slice(0, 1) });
+        expect(s.tool_panel_created).toBe(true);
+        // 第二轮工具：跨型（先 reasoning 或 answer 再 tool）产生新 TOOL 段
+        s.onAnswerDelta('中间回答'); // 终结第一轮 tool
+        s.onToolEvent(3); // 第二轮：tool_offset=2
+        const toolSegs = s.segments.filter((x) => x.type === SegmentType.TOOL);
+        expect(toolSegs).toHaveLength(2); // 两个 TOOL 段，共享 tool_panel
+        const { actions } = planSegmentFlush({ state: s, toolSteps: steps });
+        // 没有 add_elements tool_panel（避免 Duplicate ID）
+        const addActs = actions.filter((a) => a.action === 'add_elements'
+            && a.params?.elements?.[0]?.element_id === 'tool_panel');
+        expect(addActs).toHaveLength(0);
+        // 有 partial_update 更新面板
+        const updActs = actions.filter((a) => a.action === 'partial_update_element'
+            && a.params?.element_id === 'tool_panel');
+        expect(updActs.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('已终结 tool 段首建：add 面板含全部步骤（累计视图，非仅区间）', () => {
         const s = new SegmentState();
         s.onToolEvent(1); // tool segment tool_offset=0, end 未设
         const toolSeg = s.segments.find((x) => x.type === SegmentType.TOOL);
-        toolSeg.tool_end_offset = 2; // 终结：只含 step[0..2)
+        toolSeg.tool_end_offset = 2; // 终结（但面板未建，仍整体 add）
         const { actions } = planSegmentFlush({ state: s, toolSteps: steps });
         const panel = actions[0].params.elements[0];
-        // 只有 2 个步骤 → title 2 steps
-        expect(panel.header.title.content).toContain('2 steps');
+        // 累计视图：全部 3 步骤 → title 3 steps
+        expect(panel.header.title.content).toContain('3 steps');
     });
 });
 
