@@ -28,6 +28,12 @@ exports.DEFAULT_FOOTER_CONFIG = {
     context: false,
     model: false,
     provider: false,
+    // 内容面板开关（非 footer 指标，但随 footer 配置一起管理）：
+    // showReasoning=false → 全程不渲染 💭 思考面板（流式 + 终态）
+    // showTools=false     → 全程不渲染 🔧 工具面板/步骤（流式 + 终态）
+    // 默认 true = 现状行为（有面板）
+    showReasoning: true,
+    showTools: true,
 };
 // ---------------------------------------------------------------------------
 // Resolver
@@ -49,5 +55,7 @@ function resolveFooterConfig(cfg) {
         context: cfg.context ?? exports.DEFAULT_FOOTER_CONFIG.context,
         model: cfg.model ?? exports.DEFAULT_FOOTER_CONFIG.model,
         provider: cfg.provider ?? exports.DEFAULT_FOOTER_CONFIG.provider,
+        showReasoning: cfg.showReasoning ?? exports.DEFAULT_FOOTER_CONFIG.showReasoning,
+        showTools: cfg.showTools ?? exports.DEFAULT_FOOTER_CONFIG.showTools,
     };
 }

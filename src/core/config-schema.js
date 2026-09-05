@@ -62,6 +62,10 @@ const FeishuFooterSchema = zod_1.z
     cache: zod_1.z.boolean().optional(),
     context: zod_1.z.boolean().optional(),
     model: zod_1.z.boolean().optional(),
+    provider: zod_1.z.boolean().optional(),
+    // 内容面板开关：showReasoning=false 隐藏思考面板，showTools=false 隐藏工具面板
+    showReasoning: zod_1.z.boolean().optional(),
+    showTools: zod_1.z.boolean().optional(),
 })
     .optional();
 const BlockStreamingCoalesceSchema = zod_1.z

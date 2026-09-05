@@ -342,11 +342,15 @@ function buildCompleteCard(params) {
     // 短回复豁免（fry-cards unified_panel_min_duration 语义）：有思考、无工具、总耗时
     // 不足 5s 时不渲染面板 —— 思考内容直接丢弃，答案走纯文本 + footer（与薯条一致）
     const UNIFIED_PANEL_MIN_DURATION_MS = 5000;
-    const hasTools = showToolUse && Boolean(toolUseSteps?.length);
-    const rawReasoning = Boolean(reasoningText?.trim());
-    const exemptShortReasoning = rawReasoning && !hasTools
+    // footer.showReasoning/showTools 门控（默认 true）：false 时隐藏思考/工具面板
+    const showReasoningPanel = footer?.showReasoning !== false;
+    const showToolsPanel = (footer?.showTools !== false) && showToolUse;
+    const hasTools = showToolsPanel && Boolean(toolUseSteps?.length);
+    const rawReasoning = showReasoningPanel && Boolean(reasoningText?.trim());
+    // showReasoning=false → 直接丢弃 reasoning 文本（不走短回复豁免逻辑，那个只在显示时才有意义）
+    const exemptShortReasoning = showReasoningPanel && rawReasoning && !hasTools
         && (typeof elapsedMs !== 'number' || elapsedMs < UNIFIED_PANEL_MIN_DURATION_MS);
-    const reasoningTextFinal = exemptShortReasoning ? undefined : reasoningText;
+    const reasoningTextFinal = showReasoningPanel && !exemptShortReasoning ? reasoningText : undefined;
     const hasReasoning = Boolean(reasoningTextFinal?.trim());
     // 状态行仅在出错/停止时外显（ fry 样式：正常完成时 ✅ 并入 footer / 面板标题，不占独立行）
     const showStatusLine = isError || isAborted;

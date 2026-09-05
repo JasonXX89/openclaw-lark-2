@@ -237,7 +237,14 @@ class StreamingCardController {
         return this.phase;
     }
     get shouldDisplayToolUse() {
+        // footer.showTools 门控（默认 true）：false 时全程不渲染工具面板
+        if (this.deps.resolvedFooter?.showTools === false)
+            return false;
         return this.deps.toolUseDisplay.showToolUse;
+    }
+    /** footer.showReasoning 门控（默认 true）：false 时全程不渲染思考面板/丢弃思考文本 */
+    get shouldDisplayReasoning() {
+        return this.deps.resolvedFooter?.showReasoning !== false;
     }
     /**
      * Activity-only mode (static/group replies): the controller drives a
@@ -357,7 +364,12 @@ class StreamingCardController {
             return;
         this.captureToolUseElapsed();
         const split = (0, builder_1.splitReasoningText)(text);
+        const showReasoning = this.shouldDisplayReasoning;
         if (split.reasoningText && !split.answerText) {
+            if (!showReasoning) {
+                // Pure reasoning payload + reasoning 隐藏 → 无内容可显示，直接返回
+                return;
+            }
             // Pure reasoning payload
             this.reasoning.reasoningElapsedMs = this.reasoning.reasoningStartTime
                 ? Date.now() - this.reasoning.reasoningStartTime
@@ -370,7 +382,7 @@ class StreamingCardController {
         }
         // Answer payload (may also contain inline reasoning from tags)
         this.reasoning.isReasoningPhase = false;
-        if (split.reasoningText) {
+        if (split.reasoningText && showReasoning) {
             this.reasoning.accumulatedReasoningText = split.reasoningText;
             this.segmentState.setReasoningSnapshot(split.reasoningText);
         }
@@ -396,6 +408,9 @@ class StreamingCardController {
         if (!this.shouldProceed('onReasoningStream.postCreate'))
             return;
         if (!this.cardKit.cardMessageId)
+            return;
+        // footer.showReasoning=false：思考不显示，丢弃 reasoning 流（不喂段、不积累）
+        if (!this.shouldDisplayReasoning)
             return;
         const rawText = payload.text ?? '';
         if (!rawText)
@@ -512,7 +527,8 @@ class StreamingCardController {
         // any thinking content that the LLM wrapped in <think> tags.
         const rawText = payload.text ?? '';
         const split = (0, builder_1.splitReasoningText)(rawText);
-        if (split.reasoningText) {
+        // footer.showReasoning=false：丢弃 reasoning（不喂段、不积累），答案不受影响
+        if (split.reasoningText && this.shouldDisplayReasoning) {
             if (!this.reasoning.reasoningStartTime) {
                 this.reasoning.reasoningStartTime = Date.now();
             }
