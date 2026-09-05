@@ -29,12 +29,14 @@ const card_error_1 = require("./card-error.js");
 const cardkit_1 = require("./cardkit.js");
 const flush_controller_1 = require("./flush-controller.js");
 const image_resolver_1 = require("./image-resolver.js");
-const markdown_style_1 = require("./markdown-style.js");
 const tool_use_display_1 = require("./tool-use-display.js");
 const tool_use_trace_store_1 = require("./tool-use-trace-store.js");
 const reply_dispatcher_types_1 = require("./reply-dispatcher-types.js");
 const unavailable_guard_1 = require("./unavailable-guard.js");
 const segments_1 = require("./segments.js");
+const segments_render_1 = require("./segments-render.js");
+const flush_plan_1 = require("./flush-plan.js");
+const complete_replay_1 = require("./complete-replay.js");
 const log = (0, lark_logger_1.larkLogger)('card/streaming');
 // ---------------------------------------------------------------------------
 // StreamingCardController
@@ -54,11 +56,10 @@ class StreamingCardController {
         completedText: '',
         streamingPrefix: '',
         lastPartialText: '',
-        lastFlushedText: '',
     };
     /** Segment 流式模型 — 整条回复的顺序单一事实源（reasoning/answer/tool 按事件到达）。
-     *  里程碑A：作为录音层并行记录；渲染层仍从 text/reasoning 派生（行为不变），
-     *  后续里程碑B 切到 segments 驱动增量渲染 + 拆卡。 */
+     *  流式渲染（结构层 batchUpdate + 文本层 streamCardContent）与终态段重放均由
+     *  segments 驱动；text/reasoning 桶仅保留给 IM patch 降级分支使用。 */
     segmentState = new segments_1.SegmentState();
     reasoning = {
         accumulatedReasoningText: '',
@@ -338,7 +339,8 @@ class StreamingCardController {
      * Handle a deliver() call in streaming card mode.
      *
      * Accumulates text from the SDK's deliver callbacks to build the
-     * authoritative "completedText" for the final card.
+     * authoritative "completedText" for the final card, and records the
+     * answer delta into the segment state (the render source for streaming).
      */
     async onDeliver(payload) {
         if (!this.shouldProceed('onDeliver'))
@@ -375,9 +377,11 @@ class StreamingCardController {
         const answerText = split.answerText ?? text;
         // 累积 deliver 文本用于最终卡片
         this.text.completedText += (this.text.completedText ? '\n\n' : '') + answerText;
-        this.segmentState.onAnswerDelta(answerText);
-        // 没有流式数据时，用 deliver 文本显示在卡片上
+        // 无流式数据时（deliver-only 运行，模型整块返回），用 deliver 文本喂给
+        // answer 段作为渲染来源；有流式数据时 answer 段已由 onPartialReply 的
+        // 增量喂满，onDeliver 只补 completedText，不再追加（否则终态文本翻倍）。
         if (!this.text.lastPartialText && !this.text.streamingPrefix) {
+            this.segmentState.onAnswerDelta(answerText);
             this.text.accumulatedText += (this.text.accumulatedText ? '\n\n' : '') + answerText;
             this.text.streamingPrefix = this.text.accumulatedText;
             await this.throttledCardUpdate();
@@ -405,9 +409,9 @@ class StreamingCardController {
         // text=trimmed 全量、delta 单独字段），直接替换即可；面板防爆炸由「单一累计面板」天然保证，
         // 多轮 thinking 不会产生多个面板（与薯条 max_reasoning_panels 语义等效）。
         this.reasoning.accumulatedReasoningText = split.reasoningText ?? rawText;
-        // 里程碑A：并行记入 segments（快照语义）
+        // 记入 segments（快照语义）—— 增量渲染下推理面板文本走 segments 的 text_el_id
         this.segmentState.setReasoningSnapshot(split.reasoningText ?? rawText);
-        // fry-cards 样式：思考进折叠面板，走低频整卡更新（1500ms 节流），不占答案区 15ms 高频通道
+        // fry-cards 样式：思考进折叠面板，走低频增量 flush（1500ms 节流），不占答案区 15ms 高频通道
         await this.throttledToolUseStatusUpdate();
     }
     async onToolStart(payload) {
@@ -448,6 +452,10 @@ class StreamingCardController {
             return;
         if (!this.cardKit.cardMessageId)
             return;
+        // 记录工具活动到 segment 模型（增量渲染源）—— 不整卡 replace
+        if (this.cardKit.cardKitCardId) {
+            this.recordToolActivity();
+        }
         if (this.activityOnly) {
             if (this.cardKit.cardKitCardId) {
                 await this.throttledToolUseStatusUpdate();
@@ -474,6 +482,10 @@ class StreamingCardController {
             return;
         if (!this.cardKit.cardMessageId)
             return;
+        // 记录工具活动到 segment 模型（增量渲染源）—— 不整卡 replace
+        if (this.cardKit.cardKitCardId) {
+            this.recordToolActivity();
+        }
         if (this.activityOnly) {
             if (this.cardKit.cardKitCardId) {
                 await this.throttledToolUseStatusUpdate();
@@ -525,12 +537,34 @@ class StreamingCardController {
         if (this.text.lastPartialText && text.length < this.text.lastPartialText.length) {
             this.text.streamingPrefix += (this.text.streamingPrefix ? '\n\n' : '') + this.text.lastPartialText;
         }
+        // 计算本帧相对上一帧的 answer 增量（onPartialReply 的 text 是累计增长的，
+        // 每帧 = 上一帧前缀 + 新 delta）。delta 喂给 segmentState 的 answer 段，
+        // 供增量渲染的文本层 streamCardContent 使用（保持打字机语义）。
+        const prevPartialText = this.text.lastPartialText;
         this.text.lastPartialText = text;
         this.text.accumulatedText = this.text.streamingPrefix ? this.text.streamingPrefix + '\n\n' + text : text;
         // NO_REPLY 缓冲
         if (!this.text.streamingPrefix && reply_runtime_1.SILENT_REPLY_TOKEN.startsWith(this.text.accumulatedText.trim())) {
             log.debug('onPartialReply: buffering NO_REPLY prefix');
             return;
+        }
+        // 喂 answer 增量到 segmentState（增量渲染的唯一文本来源）。
+        // 边界场景（新回复 streamingPrefix 出现）：上一帧已并入 prefix，本帧是全新答复，
+        // 单独作为一个新 answer 段；否则 delta = 本帧累计超出上一帧的部分。
+        let answerDelta;
+        if (this.text.streamingPrefix && prevPartialText) {
+            // 新回复已从 prefix 重新开始：本帧整段为新 answer
+            answerDelta = text;
+        }
+        else if (prevPartialText && text.startsWith(prevPartialText)) {
+            answerDelta = text.slice(prevPartialText.length);
+        }
+        else {
+            // 首帧（无上一帧）或非前缀增长：整帧作为新增 delta
+            answerDelta = text;
+        }
+        if (answerDelta) {
+            this.segmentState.onAnswerDelta(answerDelta);
         }
         await this.ensureCardCreated();
         if (!this.shouldProceed('onPartialReply.postCreate'))
@@ -548,6 +582,8 @@ class StreamingCardController {
             return;
         }
         this.captureToolUseElapsed();
+        // 终态段快照：终结未关闭 tool 段 + 补算最后一个 reasoning elapsed
+        const errTotalSteps = this.finalizeSegmentState();
         this.finalizeCard('onError', 'error');
         await this.flush.waitForFlush();
         if (this.cardCreationPromise)
@@ -557,12 +593,15 @@ class StreamingCardController {
         const toolUseDisplay = this.computeToolUseDisplay();
         try {
             if (this.cardKit.cardMessageId) {
-                const rawErrorText = this.text.accumulatedText
-                    ? `${this.text.accumulatedText}\n\n---\n**Error**: An error occurred while generating the response.`
+                const replay = (0, complete_replay_1.replayTerminalContent)(this.segmentState);
+                const segAnswer = replay.answerText || this.text.completedText || this.text.accumulatedText;
+                const rawErrorText = segAnswer
+                    ? `${segAnswer}\n\n---\n**Error**: An error occurred while generating the response.`
                     : '**Error**: An error occurred while generating the response.';
+                const reasoningText = replay.reasoningText ?? (this.reasoning.accumulatedReasoningText || undefined);
                 const terminalContent = prepareTerminalCardContent({
                     text: rawErrorText,
-                    reasoningText: this.reasoning.accumulatedReasoningText || undefined,
+                    reasoningText,
                 }, this.imageResolver);
                 const errorCard = (0, builder_1.buildCardContent)('complete', {
                     text: terminalContent.text,
@@ -610,6 +649,8 @@ class StreamingCardController {
             await this.deleteActivityCard('onIdle');
             return;
         }
+        // 终态段快照：终结未关闭 tool 段 + 补算最后一个 reasoning elapsed
+        this.finalizeSegmentState();
         this.finalizeCard('onIdle', 'normal');
         await this.flush.waitForFlush();
         if (this.cardCreationPromise) {
@@ -635,17 +676,21 @@ class StreamingCardController {
                         accountId: this.deps.accountId,
                     });
                 }
+                // 终态内容段重放：answer/reasoning 从 SegmentState 重建
+                const replay = (0, complete_replay_1.replayTerminalContent)(this.segmentState);
+                const segAnswer = replay.answerText || '';
                 const isNoReplyLeak = !this.text.completedText && reply_runtime_1.SILENT_REPLY_TOKEN.startsWith(this.text.accumulatedText.trim());
-                const displayText = this.text.completedText || (isNoReplyLeak ? '' : this.text.accumulatedText) || reply_dispatcher_types_1.EMPTY_REPLY_FALLBACK_TEXT;
-                if (!this.text.completedText && !this.text.accumulatedText) {
+                const displayText = segAnswer || (isNoReplyLeak ? '' : this.text.accumulatedText) || reply_dispatcher_types_1.EMPTY_REPLY_FALLBACK_TEXT;
+                if (!segAnswer && !this.text.accumulatedText && !this.text.completedText) {
                     log.warn('reply completed without visible text, using empty-reply fallback');
                 }
                 // 等待图片异步解析（最多 15s），避免终态卡片留占位符
                 const resolvedDisplayText = await this.imageResolver.resolveImagesAwait(displayText, 15_000);
                 const idleToolUseDisplay = this.computeToolUseDisplay();
+                const reasoningText = replay.reasoningText ?? (this.reasoning.accumulatedReasoningText || undefined);
                 const terminalContent = prepareTerminalCardContent({
                     text: resolvedDisplayText,
-                    reasoningText: this.reasoning.accumulatedReasoningText || undefined,
+                    reasoningText,
                 }, this.imageResolver);
                 const footerMetrics = this.needsFooterMetrics() ? await this.getFooterSessionMetrics() : undefined;
                 const completeCard = (0, builder_1.buildCardContent)('complete', {
@@ -748,10 +793,15 @@ class StreamingCardController {
                 await this.cardCreationPromise;
             const effectiveCardId = this.cardKit.cardKitCardId ?? this.cardKit.originalCardKitCardId;
             const elapsedMs = Date.now() - this.dispatchStartTime;
+            // 终态段快照：终结未关闭 tool 段 + 补算最后一个 reasoning elapsed
+            this.finalizeSegmentState();
             const abortToolUseDisplay = this.computeToolUseDisplay();
+            const replay = (0, complete_replay_1.replayTerminalContent)(this.segmentState);
+            const segAnswer = replay.answerText || this.text.accumulatedText || '';
+            const reasoningText = replay.reasoningText ?? (this.reasoning.accumulatedReasoningText || undefined);
             const terminalContent = prepareTerminalCardContent({
-                text: this.text.accumulatedText || 'Aborted.',
-                reasoningText: this.reasoning.accumulatedReasoningText || undefined,
+                text: segAnswer || 'Aborted.',
+                reasoningText,
             }, this.imageResolver);
             const footerMetrics = this.needsFooterMetrics() ? await this.getFooterSessionMetrics() : undefined;
             if (effectiveCardId) {
@@ -825,9 +875,12 @@ class StreamingCardController {
             try {
                 try {
                     // Step 1: Create card entity
+                    // 增量渲染（segment 模型）：初始卡 = 最小骨架（仅 loading 锚点）。
+                    // reasoning/answer/tool 段按事件到达再 add_elements 插入到 loading
+                    // 之前（insert_before），不再预渲染工具/思考面板，也不预建空 answer 占位。
                     const cId = await (0, cardkit_1.createCardEntity)({
                         cfg: this.deps.cfg,
-                        card: (0, builder_1.buildStreamingThinkingCard)(this.deps.toolUseDisplay.showToolUse),
+                        card: (0, builder_1.buildSegmentSkeletonCard)(),
                         accountId: this.deps.accountId,
                     });
                     if (this.isStaleCreate(epoch)) {
@@ -931,6 +984,21 @@ class StreamingCardController {
     // ------------------------------------------------------------------
     // Internal: flush
     // ------------------------------------------------------------------
+    /**
+     * The single flush path for CardKit streaming — a two-layer update:
+     *
+     *  1. structural layer: new reasoning/answer/tool segments are inserted via
+     *     batchUpdateCardKit (planSegmentFlush → batch actions), including the
+     *     reasoning-panel finalize (Thinking… → Thought for Xs) partial update.
+     *  2. text layer: dirty reasoning/answer text is streamed to its segment's
+     *     element via streamCardContent (planSegmentFlush → streams).
+     *
+     * reasoning is delivered as a full snapshot (setReasoningSnapshot), so it is
+     * always streamed wholesale to its text_el_id whenever the segment is dirty.
+     *
+     * The old full-card replace (updateCardKitCard with buildDisplayText) has been
+     * removed; IM-patch fallback (no cardKitCardId) still builds a 'streaming' card.
+     */
     async performFlush() {
         if (!this.cardKit.cardMessageId || this.isTerminalPhase)
             return;
@@ -945,30 +1013,64 @@ class StreamingCardController {
             isCardKit: !!this.cardKit.cardKitCardId,
         });
         try {
-            const displayText = this.buildDisplayText();
-            // 流式中间帧使用同步 resolveImages（不等待异步上传）
-            const resolvedText = this.imageResolver.resolveImages(displayText);
             if (this.cardKit.cardKitCardId) {
-                if (resolvedText !== this.text.lastFlushedText) {
-                    const prevSeq = this.cardKit.cardKitSequence;
+                const display = this.computeToolUseDisplay();
+                const toolSteps = Array.isArray(display?.steps) ? display.steps : [];
+                // Snapshot which segments were already created BEFORE this flush so a
+                // freshly-created (already-finalized) reasoning segment does not also
+                // receive a redundant finalize partial_update in the same flush.
+                const preCreated = new Set();
+                for (const seg of this.segmentState.segments) {
+                    if (seg.created)
+                        preCreated.add(seg);
+                }
+                const plan = (0, flush_plan_1.planSegmentFlush)({
+                    state: this.segmentState,
+                    toolSteps,
+                    consumeCreated: true,
+                });
+                // reasoning 段终结润色（结构层 partial_update）：思考结束（elapsed_ms 已补算）
+                // 且段已创建 → 面板标题从 Thinking… 更新为 Thought for Xs 并折叠。
+                for (const seg of this.segmentState.segments) {
+                    if (seg.type === segments_1.SegmentType.REASONING
+                        && seg.created && seg.elapsed_ms > 0 && !seg.reasoning_finalized) {
+                        seg.reasoning_finalized = true;
+                        if (preCreated.has(seg)) {
+                            plan.actions.push((0, segments_render_1.buildReasoningFinalizedAction)(seg));
+                        }
+                    }
+                }
+                if (!plan.actions.length && !plan.streams.length) {
+                    log.debug('flushCardUpdate: no segment changes, skipping');
+                    return;
+                }
+                // 结构层：新建 reasoning/answer/tool 段 + reasoning finalize
+                if (plan.actions.length) {
                     this.cardKit.cardKitSequence += 1;
-                    log.debug('flushCardUpdate: answer seq bump', {
-                        seqBefore: prevSeq,
-                        seqAfter: this.cardKit.cardKitSequence,
-                    });
-                    await (0, cardkit_1.streamCardContent)({
+                    await (0, cardkit_1.batchUpdateCardKit)({
                         cfg: this.deps.cfg,
                         cardId: this.cardKit.cardKitCardId,
-                        elementId: builder_1.STREAMING_ELEMENT_ID,
-                        content: (0, markdown_style_1.optimizeMarkdownStyle)(resolvedText),
+                        actions: plan.actions,
                         sequence: this.cardKit.cardKitSequence,
                         accountId: this.deps.accountId,
                     });
-                    this.text.lastFlushedText = resolvedText;
+                }
+                // 文本层：dirty answer / reasoning 增量刷到各自元素
+                for (const stream of plan.streams) {
+                    this.cardKit.cardKitSequence += 1;
+                    await (0, cardkit_1.streamCardContent)({
+                        cfg: this.deps.cfg,
+                        cardId: this.cardKit.cardKitCardId,
+                        elementId: stream.elementId,
+                        content: stream.content,
+                        sequence: this.cardKit.cardKitSequence,
+                        accountId: this.deps.accountId,
+                    });
                 }
             }
             else {
                 log.debug('flushCardUpdate: IM patch fallback');
+                const resolvedText = this.imageResolver.resolveImages(this.text.accumulatedText);
                 const flushDisplay = this.computeToolUseDisplay();
                 const card = (0, builder_1.buildCardContent)('streaming', {
                     text: this.reasoning.isReasoningPhase ? '' : resolvedText,
@@ -981,7 +1083,7 @@ class StreamingCardController {
                 await (0, send_1.updateCardFeishu)({
                     cfg: this.deps.cfg,
                     messageId: this.cardKit.cardMessageId,
-                    card: card,
+                    card,
                     accountId: this.deps.accountId,
                 });
             }
@@ -1018,11 +1120,28 @@ class StreamingCardController {
             }
         }
     }
-    buildDisplayText() {
-        // fry-cards style: reasoning streams into its own collapsible panel (via
-        // low-frequency full-card updates), never inline into the answer element.
-        // The answer element only ever carries answer text.
-        return this.text.accumulatedText;
+    /**
+     * Record the current tool activity (full step list from the trace store)
+     * into the segment state so the tool panel can be built/updated incrementally.
+     * No-op when there are no tool steps yet.
+     */
+    recordToolActivity() {
+        const display = this.computeToolUseDisplay();
+        const steps = Array.isArray(display?.steps) ? display.steps : [];
+        if (steps.length > 0) {
+            this.segmentState.onToolEvent(steps.length);
+        }
+    }
+    /**
+     * Terminal-time segment finalization: close any open tool segment and
+     * back-fill the last open reasoning segment's elapsed. Returns the total
+     * tool step count used (for the terminal complete-card rendering).
+     */
+    finalizeSegmentState() {
+        const display = this.computeToolUseDisplay();
+        const totalToolSteps = Array.isArray(display?.steps) ? display.steps.length : 0;
+        this.segmentState.finalizeSegments(totalToolSteps);
+        return totalToolSteps;
     }
     async throttledCardUpdate() {
         if (this.guard.shouldSkip('throttledCardUpdate'))
@@ -1030,7 +1149,9 @@ class StreamingCardController {
         const throttleMs = this.cardKit.cardKitCardId ? reply_dispatcher_types_1.THROTTLE_CONSTANTS.CARDKIT_MS : reply_dispatcher_types_1.THROTTLE_CONSTANTS.PATCH_MS;
         await this.flush.throttledUpdate(throttleMs);
     }
-    // ---- Tool-use status streaming (pre-answer phase) ----
+    // ---- Reasoning / tool-use status streaming (low-frequency) ----
+    // 旧 updateToolUseStatus() 整卡 replace 已删除；改为把工具活动记录进 segmentState，
+    // 触发节流 flush（performFlush 的 batchUpdate + streamCardContent 增量渲染）。
     lastToolUseStatusUpdateTime = 0;
     async throttledToolUseStatusUpdate() {
         if (!this.cardKit.cardKitCardId)
@@ -1039,34 +1160,10 @@ class StreamingCardController {
         if (now - this.lastToolUseStatusUpdateTime < reply_dispatcher_types_1.THROTTLE_CONSTANTS.REASONING_STATUS_MS)
             return;
         this.lastToolUseStatusUpdateTime = now;
-        await this.updateToolUseStatus();
-    }
-    async updateToolUseStatus() {
-        if (!this.cardKit.cardKitCardId || this.isTerminalPhase)
-            return;
-        try {
-            const display = this.computeToolUseDisplay();
-            // 思考阶段：整卡更新带上 💭 折叠面板（fry-cards 样式）；答案开始后面板收起为标题态
-            const reasoningVisible = this.reasoning.isReasoningPhase || !this.text.accumulatedText;
-            const card = (0, builder_1.buildStreamingPreAnswerCard)({
-                steps: display?.steps,
-                elapsedMs: this.visibleToolUseElapsedMs,
-                showToolUse: this.shouldDisplayToolUse,
-                reasoningText: reasoningVisible ? this.reasoning.accumulatedReasoningText : undefined,
-                reasoningElapsedMs: this.reasoning.reasoningElapsedMs || undefined,
-            });
-            this.cardKit.cardKitSequence += 1;
-            await (0, cardkit_1.updateCardKitCard)({
-                cfg: this.deps.cfg,
-                cardId: this.cardKit.cardKitCardId,
-                card,
-                sequence: this.cardKit.cardKitSequence,
-                accountId: this.deps.accountId,
-            });
-        }
-        catch (err) {
-            log.debug('updateToolUseStatus failed', { error: String(err) });
-        }
+        // (a) 记录工具活动到 segment 模型（推理阶段 onReasoningStream 已 setReasoningSnapshot）
+        this.recordToolActivity();
+        // (b) 触发节流增量 flush（不再整卡 replace）
+        await this.throttledCardUpdate();
     }
     // ------------------------------------------------------------------
     // Internal: lifecycle helpers

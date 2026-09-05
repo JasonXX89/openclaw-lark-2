@@ -20,6 +20,7 @@ exports.formatFooterRuntimeSegments = formatFooterRuntimeSegments;
 exports.buildCardContent = buildCardContent;
 exports.buildStreamingThinkingCard = buildStreamingThinkingCard;
 exports.buildStreamingPreAnswerCard = buildStreamingPreAnswerCard;
+exports.buildSegmentSkeletonCard = buildSegmentSkeletonCard;
 exports.toCardKit2 = toCardKit2;
 const markdown_style_1 = require("./markdown-style.js");
 const tool_use_display_1 = require("./tool-use-display.js");
@@ -653,6 +654,52 @@ function buildStreamingPreAnswerCard(params) {
             },
         },
         body: { elements },
+    };
+}
+/**
+ * Build a CardKit 2.0 **minimal skeleton** card for segment-incremental
+ * streaming.
+ *
+ * Unlike buildStreamingPreAnswerCard, this card contains ONLY the loading
+ * anchor element (`loading_icon`) — there is NO pre-allocated empty answer
+ * element (`streaming_content`) and NO reasoning/tool panel.
+ *
+ * Rationale: under the segment-incremental model (flush-plan + segments-render),
+ * the FIRST segment to arrive (reasoning / answer / tool) is inserted via
+ * `add_elements { type: 'insert_before', target_element_id: 'loading_icon' }`.
+ * If the skeleton pre-allocated an empty answer element, it would be a dead
+ * placeholder never streamed to (the answer element id comes from the segment,
+ * e.g. `answer_0`), producing a stray blank block and an ambiguous stream
+ * target. So the skeleton stays minimal; every segment is added on arrival.
+ */
+function buildSegmentSkeletonCard() {
+    return {
+        schema: '2.0',
+        config: {
+            streaming_mode: true,
+            streaming_config: {
+                print_frequency_ms: { default: 15 },
+                print_step: { default: 1 },
+                print_strategy: 'fast',
+            },
+            locales: ['zh_cn', 'en_us'],
+            summary: {
+                content: 'Processing...',
+                i18n_content: { zh_cn: '处理中...', en_us: 'Processing...' },
+            },
+        },
+        body: {
+            elements: [{
+                tag: 'markdown',
+                content: ' ',
+                icon: {
+                    tag: 'custom_icon',
+                    img_key: 'img_v3_02vb_496bec09-4b43-4773-ad6b-0cdd103cd2bg',
+                    size: '16px 16px',
+                },
+                element_id: 'loading_icon',
+            }],
+        },
     };
 }
 /**
