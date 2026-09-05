@@ -135,6 +135,28 @@ cd openclaw-lark
 
 ---
 
+## 可选补丁：让思考面板对普通消息生效（Reasoning hook patch）
+
+**现象**：OpenClaw 默认在普通消息（不带 `/reasoning stream`）时不把思考流推给渠道插件——即使模型在思考、`reasoningDefault: "stream"` 已配置，飞书卡片也没有 💭 思考面板。
+
+**原因**：OpenClaw dist 里有一道授权 gate——非授权发送者的普通消息会把 `resolvedReasoningLevel` 压成 `"off"`，导致 reasoning 不推送。这是 OpenClaw 主程序行为，本插件无法通过配置绕过。
+
+**补丁做法**：`scripts/reasoning-hook.js` 用 Node ESM loader hook（`module.registerHooks`，Node 22.15+/23+）在内存里移除该 gate——磁盘 dist 文件保持原版，`npm update -g openclaw` **不会**冲掉。安装脚本自动往 `~/.openclaw/gateway.cmd` 加 `--import`。
+
+```bash
+# 在插件仓库根目录执行
+node scripts/install-reasoning-hook.js status     # 查看是否已启用
+node scripts/install-reasoning-hook.js install    # 安装（复制 hook + 改 gateway.cmd）
+node scripts/install-reasoning-hook.js uninstall  # 卸载（还原 gateway.cmd）
+```
+
+安装后重启网关：`openclaw gateway restart`，并确认 `openclaw.json` 里目标 agent 已配 `reasoningDefault: "stream"`。重启后日志出现 `[reasoning-hook] registered` 即生效；发普通思考题（不带 `/reasoning stream`）应能看到 💭 面板。
+
+> 仅影响"是否把思考流推给插件"，不改模型行为/权限。单人自用安全损失≈0。
+> Optional: reasoning panel for plain messages. Install only if you want 💭 panels without appending `/reasoning stream` to every message.
+
+---
+
 ## 开发 / Development
 
 ```bash
