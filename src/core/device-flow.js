@@ -89,7 +89,9 @@ async function requestDeviceAuthorization(params) {
         body: body.toString(),
     }, brand);
     const text = await resp.text();
-    log.info(`response status=${resp.status} body=${text.slice(0, 500)}`);
+    // M5 加固：不记录原始响应体（含 device_code/user_code/verification_uri）。
+    // 失败分支保留有限错误信息（error_description 已在下方单独处理，不重复打 body）。
+    log.info(`device authorization response status=${resp.status}`);
     let data;
     try {
         data = JSON.parse(text);

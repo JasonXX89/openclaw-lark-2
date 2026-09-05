@@ -58,12 +58,20 @@ function extractMessageBody(text, allMentionKeys) {
 // ---------------------------------------------------------------------------
 // Format helpers -- text messages
 // ---------------------------------------------------------------------------
+/** Escape user-controlled display names embedded into Feishu mention markup (M13). */
+function escapeMentionName(name) {
+    return String(name ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 /**
  * Format a mention for a Feishu text / post message.
  * @returns e.g. `<at user_id="ou_xxx">Alice</at>`
  */
 function formatMentionForText(target) {
-    return `<at user_id="${target.openId}">${target.name}</at>`;
+    return `<at user_id="${target.openId}">${escapeMentionName(target.name)}</at>`;
 }
 /** Format an @everyone mention for text / post. */
 function formatMentionAllForText() {

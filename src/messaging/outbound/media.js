@@ -836,6 +836,9 @@ async function fetchMediaBuffer(urlOrPath, localRoots) {
     const FETCH_TIMEOUT_MS = 30_000;
     log.info(`fetching remote media: ${raw}`);
     // Retry transient server errors (502/503/504) with bounded backoff.
+    // M14 加固：远程媒体大小上限（对齐入站默认 mediaMaxMb=30）。
+    // 用 content-length 提前拒绝 + arrayBuffer 后校验双保险，防内存放大。
+    const REMOTE_MEDIA_MAX_BYTES = (30 * 1024 * 1024);
     const arrayBuffer = await withRetry(async () => {
         const { response, release } = await (0, ssrf_1.guardedRemoteFetch)(raw, undefined, {
             timeoutMs: FETCH_TIMEOUT_MS,
@@ -850,7 +853,21 @@ async function fetchMediaBuffer(urlOrPath, localRoots) {
                 err.status = response.status;
                 throw err;
             }
-            return response.arrayBuffer();
+            const contentLength = Number(response.headers?.get('content-length'));
+            if (Number.isFinite(contentLength) && contentLength > REMOTE_MEDIA_MAX_BYTES) {
+                const err = new Error(`[feishu-media] Remote media too large from "${raw}": ` +
+                    `${contentLength} bytes exceeds ${REMOTE_MEDIA_MAX_BYTES} limit.`);
+                err.status = 413;
+                throw err;
+            }
+            const buf = await response.arrayBuffer();
+            if (buf.byteLength > REMOTE_MEDIA_MAX_BYTES) {
+                const err = new Error(`[feishu-media] Remote media too large from "${raw}": ` +
+                    `${buf.byteLength} bytes exceeds ${REMOTE_MEDIA_MAX_BYTES} limit.`);
+                err.status = 413;
+                throw err;
+            }
+            return buf;
         }
         finally {
             await release();
