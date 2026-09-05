@@ -485,13 +485,12 @@ function buildCompleteCard(params) {
         if (unifiedChildren.length === 0) {
             unifiedChildren.push({
                 tag: 'markdown',
-                content: '**暂无思考与工具调用过程**',
+                content: "<font color='grey'>暂无思考与工具调用过程</font>",
                 i18n_content: {
-                    zh_cn: '**暂无思考与工具调用过程**',
-                    en_us: '**No reasoning or tool calls**',
+                    zh_cn: "<font color='grey'>暂无思考与工具调用过程</font>",
+                    en_us: "<font color='grey'>No reasoning or tool calls</font>",
                 },
                 text_size: 'notation',
-                text_color: 'grey',
                 text_align: 'center',
             });
         }
