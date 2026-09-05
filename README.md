@@ -61,7 +61,7 @@
 
 ```bash
 npm pack
-openclaw plugins install openclaw-lark-2-2026.9.4.tgz
+openclaw plugins install openclaw-lark-2-2026.9.6.tgz
 ```
 
 ### 从源码 / from source
