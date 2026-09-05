@@ -483,12 +483,14 @@ function buildCompleteCard(params) {
         }
         // 空态（0 思考 0 工具）：面板常驻但展开后给占位提示，避免空白
         if (unifiedChildren.length === 0) {
+            // 颜色用 <font> 内嵌（markdown 的 text_color 不生效），粗体用 ** 
+            // 并列结构参考 buildToolUseStepTitleMarkdown（**title** · <font>…）
             unifiedChildren.push({
                 tag: 'markdown',
-                content: "<font color='grey'>暂无思考与工具调用过程</font>",
+                content: "<font color='grey'>**暂无思考与工具调用过程**</font>",
                 i18n_content: {
-                    zh_cn: "<font color='grey'>暂无思考与工具调用过程</font>",
-                    en_us: "<font color='grey'>No reasoning or tool calls</font>",
+                    zh_cn: "<font color='grey'>**暂无思考与工具调用过程**</font>",
+                    en_us: "<font color='grey'>**No reasoning or tool calls**</font>",
                 },
                 text_size: 'notation',
                 text_align: 'center',
