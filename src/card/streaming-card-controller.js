@@ -599,15 +599,6 @@ class StreamingCardController {
             answerDelta = text;
         }
         if (answerDelta) {
-            // [SEG-DEBUG3] payload 结构诊断: delta 字段是否存在 + 本帧 text/delta 长度
-            log.info('[SEG-DEBUG3] partial', {
-                hasDelta: typeof payload.delta === 'string',
-                deltaLen: typeof payload.delta === 'string' ? payload.delta.length : 0,
-                textLen: text.length,
-                prevLen: prevPartialText ? prevPartialText.length : 0,
-                prefix: Boolean(this.text.streamingPrefix),
-                deltaLen2: answerDelta.length,
-            });
             // 区分两种喂入：
             // ① 前缀增长算出的增量（answerDelta 是 text 超出 prev 的部分）→ 无缝接续
             // ② 整帧喂入（首帧 / 基线重置后的新段首帧 / 非前缀增长）→ 若已有答案
