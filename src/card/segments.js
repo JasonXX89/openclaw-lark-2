@@ -78,7 +78,9 @@ class SegmentState {
         for (let i = this.segments.length - 1; i >= 0; i--) {
             const seg = this.segments[i];
             if (seg.type === SegmentType.REASONING && seg.start_time && !seg.elapsed_ms) {
-                seg.elapsed_ms = (now - seg.start_time) * 1000;
+                // Date.now() 已是毫秒，直接存毫秒差（fry 用 time.time() 秒×1000 才是毫秒；
+                // JS 移植勿再 ×1000，否则微秒值被 formatElapsed 当毫秒 → 显示放大 1000 倍）
+                seg.elapsed_ms = now - seg.start_time;
                 break;
             }
         }
@@ -225,7 +227,7 @@ class SegmentState {
         for (let i = this.segments.length - 1; i >= 0; i--) {
             const s = this.segments[i];
             if (s.type === SegmentType.REASONING && s.start_time && !s.elapsed_ms) {
-                s.elapsed_ms = (now - s.start_time) * 1000;
+                s.elapsed_ms = now - s.start_time; // 毫秒差（勿 ×1000，见 _finalizePrevReasoning 注释）
                 break;
             }
         }
