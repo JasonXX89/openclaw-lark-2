@@ -68,7 +68,8 @@ function _toolPanelTitle(stepCount, elapsedMs) {
 /**
  * 构造「新增 reasoning 段」的 batchUpdate action。
  *
- * reasoning 段 = collapsible_panel（expanded=true，思考中展开让用户看到），
+ * reasoning 段 = collapsible_panel（expanded=false，思考中默认折叠，Jason 定稿
+ * ——用户不被打断，想看时点开；不再思考中自动展开），
  * 内部有独立 text_el_id 供后续 streamCardContent 刷文本。
  *
  * @param {import('./segments.js').Segment} seg - reasoning 段（el_id + text_el_id 已分配）
@@ -83,7 +84,7 @@ function buildAddReasoningAction(seg, elapsedMs) {
             target_element_id: LOADING_ELEMENT_ID,
             elements: [{
                 tag: 'collapsible_panel',
-                expanded: true,
+                expanded: false,
                 header: {
                     title: _reasoningPanelTitle(elapsedMs),
                     vertical_align: 'center',

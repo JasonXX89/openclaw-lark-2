@@ -46,7 +46,7 @@ describe('buildAddReasoningAction', () => {
         const el = action.params.elements[0];
         expect(el.tag).toBe('collapsible_panel');
         expect(el.element_id).toBe('reasoning_panel_0');
-        expect(el.expanded).toBe(true); // 思考中展开
+        expect(el.expanded).toBe(false); // 思考中默认折叠（Jason 定稿）
     });
 
     it('panel contains text sub-element with text_el_id', () => {

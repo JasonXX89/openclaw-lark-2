@@ -359,7 +359,16 @@ function buildCompleteCard(params) {
         tag: 'markdown',
         content: `${statusLine}\n\n${(0, markdown_style_1.optimizeMarkdownStyle)(text)}`,
     });
-    if (hasReasoning || hasTools) {
+    const panelWanted = footer && (showReasoningPanel || showToolsPanel);
+    if (panelWanted) {
+        // 面板常驻（Jason 定稿）：showReasoning 或 showTools 至少一个开启时，
+        // 无论有无思考/工具都渲染底部折叠面板，标题恒带 💭N 🔧N（真实计数，
+        // 没用为 0）。双 false 时走 else-if 纯指标 footer（无面板无计数）。
+        const tl = Array.isArray(workflowTimeline) ? workflowTimeline : [];
+        const reasoningCount = tl.length > 0
+            ? tl.filter((e) => e.kind === 'reasoning').length
+            : (hasReasoning ? 1 : 0);
+        const toolCount = (Array.isArray(toolUseSteps) ? toolUseSteps.length : 0);
         // 面板标题：🤖 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
         const model = footerMetrics?.model?.trim() ?? '';
         const headerParts = [];
@@ -367,10 +376,10 @@ function buildCompleteCard(params) {
             headerParts.push(`🤖${model}`);
         else
             headerParts.push('🤖');
-        if (hasReasoning)
-            headerParts.push(`💭1`);
-        if (hasTools)
-            headerParts.push(`🔧${toolUseSteps.length}`);
+        if (showReasoningPanel)
+            headerParts.push(`💭${reasoningCount}`);
+        if (showToolsPanel)
+            headerParts.push(`🔧${toolCount}`);
         // footer 信息并入面板标题（全部指标显示在标题上，展开后内部只有思考/工具）
         const fpTitle = formatFooterRuntimeSegments({
             footer,
@@ -471,6 +480,19 @@ function buildCompleteCard(params) {
             if (hasTools) {
                 unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
             }
+        }
+        // 空态（0 思考 0 工具）：面板常驻但展开后给占位提示，避免空白
+        if (unifiedChildren.length === 0) {
+            unifiedChildren.push({
+                tag: 'markdown',
+                content: '暂无思考与工具调用过程',
+                i18n_content: {
+                    zh_cn: '暂无思考与工具调用过程',
+                    en_us: 'No reasoning or tool calls',
+                },
+                text_size: 'notation',
+                text_color: 'grey',
+            });
         }
         elements.push({
             tag: 'collapsible_panel',
