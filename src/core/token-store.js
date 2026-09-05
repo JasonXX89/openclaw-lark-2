@@ -203,8 +203,34 @@ const WIN32_MASTER_KEY_PATH = (0, node_path_1.join)(WIN32_UAT_DIR, 'master.key')
 function win32SafeFileName(account) {
     return account.replace(/[^a-zA-Z0-9._-]/g, '_') + '.enc';
 }
+/**
+ * Best-effort ACL lockdown for the Windows credentials directory (M1).
+ *
+ * 与 Linux 后端 0700 目录 + 0600 文件对齐：移除目录继承权限，仅授予当前用户
+ * 完全控制，避免同机其他用户/进程读取 master.key + *.enc。
+ * 失败仅告警不抛出——不能因加固失败阻塞令牌读写（可用性优先）。
+ */
+async function lockWin32CredDir() {
+    const dir = WIN32_UAT_DIR;
+    try {
+        // whoami 输出形如 "hostname\\username"（也可能是 "user@domain"），icacls 接受该主体
+        const { stdout } = await execFile('whoami', []);
+        const principal = stdout.trim();
+        if (!principal)
+            return;
+        // 1) 移除继承的 ACE（子项默认不再被 Users/Everyone 继承访问）
+        await execFile('icacls', [dir, '/inheritance:r']);
+        // 2) 仅给当前用户授予完全控制（(OI) 应用到子文件，(CI) 应用到子目录）
+        await execFile('icacls', [dir, '/grant:r', `${principal}:(OI)(CI)F`]);
+        log.info(`win32 credentials dir ACL locked to ${principal}`);
+    }
+    catch (err) {
+        log.warn(`failed to lock win32 credentials dir ACL (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+    }
+}
 async function ensureWin32CredDir() {
     await (0, promises_1.mkdir)(WIN32_UAT_DIR, { recursive: true });
+    await lockWin32CredDir();
 }
 async function getWin32MasterKey() {
     try {

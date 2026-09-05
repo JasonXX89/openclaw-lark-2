@@ -605,6 +605,24 @@ async function handleCardAction(data, cfg, accountId) {
         return;
     }
     log.info(`app_auth_done clicked by ${senderOpenId}, operationId=${operationId}`);
+    // ── H4 加固：校验点击者就是 ticket 持有者（app_auth_done 语义 = 「我已完成授权，请为**我**发起 OAuth」）。
+    //    ticket.senderOpenId 与 operator.open_id 都齐全时才强校验；operator 仅携带 user_id
+    //    （Schema 2 租户无 open_id）时无法可靠匹配，记录警告并放行（device-flow 仍需持有者本人
+    //    设备确认，无 token 窃取面）。这不改正常流程：本应授权的人点击仍通过，无关人员被拦。
+    const ticketSenderOpenId = flow.ticket?.senderOpenId;
+    const operatorOpenId = data?.operator?.open_id;
+    if (ticketSenderOpenId && operatorOpenId && operatorOpenId !== ticketSenderOpenId) {
+        log.warn(`app_auth_done rejected: clicker ${operatorOpenId} != ticket sender ${ticketSenderOpenId}`);
+        return {
+            toast: {
+                type: 'warning',
+                content: '该授权卡片属于发起操作的成员，请勿代替点击。',
+            },
+        };
+    }
+    if (ticketSenderOpenId && !operatorOpenId) {
+        log.warn(`app_auth_done: operator has no open_id (user_id only, schema-2), skipping identity check: ${senderOpenId}`);
+    }
     // scope 校验在同步路径完成（3 秒内返回 toast response）
     (0, app_scope_checker_1.invalidateAppScopeCache)(flow.appId);
     const acct = (0, accounts_1.getLarkAccount)(flow.cfg, flow.accountId);
