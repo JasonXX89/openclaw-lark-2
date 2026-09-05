@@ -424,17 +424,18 @@ function buildCompleteCard(params) {
             titleParts.push(elapsedZh);
         }
         const headerText = [headerParts.join('  '), ...titleParts].filter(Boolean).join('  ');
+        // 外层统一面板展开后（对齐薯条 fry-cards）：💭 思考是嵌套子折叠面板，
+        // 🔧 工具步骤直接平铺（无工具子面板——与薯条 build_complete_card 一致）。
         const unifiedChildren = [];
         if (hasReasoning) {
-            unifiedChildren.push({
-                tag: 'markdown',
-                content: `💭 **思考过程**\n\n${reasoningTextFinal}`,
-                i18n_content: {
-                    zh_cn: `💭 **思考过程**\n\n${reasoningTextFinal}`,
-                    en_us: `💭 **Reasoning**\n\n${reasoningTextFinal}`,
-                },
-                text_size: 'notation',
-            });
+            unifiedChildren.push(buildCompleteSubPanel({
+                titleI18n: { zh_cn: '💭 思考过程', en_us: '💭 Reasoning' },
+                children: [{
+                    tag: 'markdown',
+                    content: reasoningTextFinal,
+                    text_size: 'notation',
+                }],
+            }));
         }
         if (hasTools) {
             unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
@@ -513,6 +514,45 @@ function buildCompleteCard(params) {
     return {
         config: { wide_screen_mode: true, update_multi: true, locales: ['zh_cn', 'en_us'], summary },
         elements,
+    };
+}
+/**
+ * Build a sub collapsible_panel for the complete-card unified outer panel.
+ *
+ * 外层统一面板展开后，💭 思考以嵌套子折叠呈现（对齐薯条 fry-cards：reasoning
+ * rounds 是嵌套 collapsible，tool 步骤平铺）。样式与外层面板一致。
+ *
+ * @param {object} params
+ * @param {{zh_cn: string, en_us: string}} params.titleI18n - 中英标题
+ * @param {Array} params.children - 面板内部元素
+ * @returns {object} collapsible_panel JSON
+ */
+function buildCompleteSubPanel({ titleI18n, children }) {
+    return {
+        tag: 'collapsible_panel',
+        expanded: false,
+        header: {
+            title: {
+                tag: 'plain_text',
+                content: titleI18n.en_us,
+                i18n_content: { zh_cn: titleI18n.zh_cn, en_us: titleI18n.en_us },
+                text_color: 'grey',
+                text_size: 'notation',
+            },
+            vertical_align: 'center',
+            icon: {
+                tag: 'standard_icon',
+                token: 'down-small-ccm_outlined',
+                color: 'grey',
+                size: '16px 16px',
+            },
+            icon_position: 'right',
+            icon_expanded_angle: -180,
+        },
+        border: { color: 'grey', corner_radius: '5px' },
+        vertical_spacing: '8px',
+        padding: '8px 8px 8px 8px',
+        elements: children,
     };
 }
 function buildConfirmCard(confirmData) {
