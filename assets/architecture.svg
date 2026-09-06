@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 720" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif">
+  <!-- 背景 -->
+  <rect width="900" height="720" fill="#ffffff"/>
+  <!-- 标题 -->
+  <text x="450" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">openclaw-lark-2 插件内部流水线</text>
+  <text x="450" y="54" text-anchor="middle" font-size="12" fill="#64748b">入站消息 → Segment 流式卡片渲染 → 工具调用 → 出站回复</text>
+
+  <!-- ============ 阶段 1: 入站 ============ -->
+  <rect x="30" y="80" width="840" height="110" rx="10" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="50" y="102" font-size="13" font-weight="700" fill="#0369a1">① 入站处理 (Inbound)</text>
+
+  <rect x="60" y="115" width="180" height="56" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="150" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="#0c4a6e">飞书事件入口</text>
+  <text x="150" y="157" text-anchor="middle" font-size="10" fill="#475569">event-handlers / raw-request</text>
+
+  <rect x="270" y="115" width="200" height="56" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="370" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="#0c4a6e">授权 · 去重 · 策略</text>
+  <text x="370" y="157" text-anchor="middle" font-size="10" fill="#475569">inbound/handler · allowFrom · bot-loop</text>
+
+  <rect x="500" y="115" width="180" height="56" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
+  <text x="590" y="140" text-anchor="middle" font-size="12" font-weight="600" fill="#0c4a6e">对话分派</text>
+  <text x="590" y="157" text-anchor="middle" font-size="10" fill="#475569">reply-mode · chat-queue</text>
+
+  <!-- 箭头 1→2 -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    </marker>
+  </defs>
+  <line x1="150" y1="171" x2="150" y2="210" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="160" y="198" font-size="9" fill="#64748b">消息文本/事件</text>
+
+  <!-- ============ 阶段 2: Segment 流式引擎 ============ -->
+  <rect x="30" y="215" width="840" height="190" rx="10" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+  <text x="50" y="237" font-size="13" font-weight="700" fill="#047857">② Segment 流式引擎 (Streaming)</text>
+
+  <rect x="60" y="250" width="230" height="60" rx="8" fill="#d1fae5" stroke="#059669"/>
+  <text x="175" y="273" text-anchor="middle" font-size="12" font-weight="600" fill="#064e3b">SegmentState 段模型</text>
+  <text x="175" y="290" text-anchor="middle" font-size="10" fill="#475569">reasoning / answer / tool 按序记录</text>
+
+  <rect x="320" y="250" width="230" height="60" rx="8" fill="#d1fae5" stroke="#059669"/>
+  <text x="435" y="273" text-anchor="middle" font-size="12" font-weight="600" fill="#064e3b">flush-plan + segments-render</text>
+  <text x="435" y="290" text-anchor="middle" font-size="10" fill="#475569">只刷变化段 · 防重复/膨胀</text>
+
+  <rect x="580" y="250" width="260" height="60" rx="8" fill="#d1fae5" stroke="#059669"/>
+  <text x="710" y="273" text-anchor="middle" font-size="12" font-weight="600" fill="#064e3b">streaming-card-controller</text>
+  <text x="710" y="290" text-anchor="middle" font-size="10" fill="#475569">onPartialReply / onDeliver / 节流</text>
+
+  <!-- 引擎内部工具记录旁路 -->
+  <rect x="60" y="330" width="260" height="56" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="190" y="353" text-anchor="middle" font-size="12" font-weight="600" fill="#78350f">工具轨迹记录</text>
+  <text x="190" y="370" text-anchor="middle" font-size="10" fill="#475569">tool-use-trace-store</text>
+
+  <rect x="580" y="330" width="260" height="56" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="710" y="353" text-anchor="middle" font-size="12" font-weight="600" fill="#78350f">工具调用</text>
+  <text x="710" y="370" text-anchor="middle" font-size="10" fill="#475569">web / exec / 飞书 OAPI · MCP</text>
+
+  <!-- 箭头 入站→流式 -->
+  <line x1="590" y1="171" x2="590" y2="215" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="175" y1="250" x2="175" y2="330" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <line x1="710" y1="310" x2="710" y2="330" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+  <!-- 引擎内部横向流 -->
+  <line x1="290" y1="280" x2="315" y2="280" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="550" y1="280" x2="575" y2="280" stroke="#059669" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ============ 阶段 3: 卡片输出 ============ -->
+  <rect x="30" y="430" width="840" height="120" rx="10" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="50" y="452" font-size="13" font-weight="700" fill="#4338ca">③ 卡片渲染与推送 (CardKit)</text>
+
+  <rect x="60" y="465" width="230" height="60" rx="8" fill="#e0e7ff" stroke="#4f46e5"/>
+  <text x="175" y="488" text-anchor="middle" font-size="12" font-weight="600" fill="#312e81">流式更新</text>
+  <text x="175" y="505" text-anchor="middle" font-size="10" fill="#475569">card.batchUpdate · element.content</text>
+
+  <rect x="320" y="465" width="230" height="60" rx="8" fill="#e0e7ff" stroke="#4f46e5"/>
+  <text x="435" y="488" text-anchor="middle" font-size="12" font-weight="600" fill="#312e81">终态整卡</text>
+  <text x="435" y="505" text-anchor="middle" font-size="10" fill="#475569">complete-replay + builder</text>
+
+  <rect x="580" y="465" width="260" height="60" rx="8" fill="#e0e7ff" stroke="#4f46e5"/>
+  <text x="710" y="488" text-anchor="middle" font-size="12" font-weight="600" fill="#312e81">飞书 CardKit 2.0</text>
+  <text x="710" y="505" text-anchor="middle" font-size="10" fill="#475569">打字机 · 💭折叠 · 🔧步骤 · 时间线</text>
+
+  <line x1="435" y1="310" x2="435" y2="430" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="175" y1="280" x2="175" y2="430" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="185" y="400" font-size="9" fill="#64748b">段增量/终态内容</text>
+
+  <!-- ============ 阶段 4: 出站 ============ -->
+  <rect x="30" y="575" width="840" height="110" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/>
+  <text x="50" y="597" font-size="13" font-weight="700" fill="#c2410c">④ 出站回复 (Outbound)</text>
+
+  <rect x="60" y="612" width="180" height="56" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="150" y="637" text-anchor="middle" font-size="12" font-weight="600" fill="#7c2d12">飞书 IM 消息</text>
+  <text x="150" y="654" text-anchor="middle" font-size="10" fill="#475569">卡片引用 / 文本 / 图片 post</text>
+
+  <rect x="270" y="612" width="200" height="56" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="370" y="637" text-anchor="middle" font-size="12" font-weight="600" fill="#7c2d12">ask_user 交互卡</text>
+  <text x="370" y="654" text-anchor="middle" font-size="10" fill="#475569">选项按钮 · 回调 card.action</text>
+
+  <rect x="500" y="612" width="180" height="56" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="590" y="637" text-anchor="middle" font-size="12" font-weight="600" fill="#7c2d12">主动投递</text>
+  <text x="590" y="654" text-anchor="middle" font-size="10" fill="#475569">cron 日报 · 长文本卡片化</text>
+
+  <line x1="710" y1="525" x2="710" y2="575" stroke="#334155" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="150" y1="250" x2="150" y2="575" stroke="#334155" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arrow)"/>
+  <text x="60" y="560" font-size="9" fill="#64748b">交互回调回流(按钮点击)</text>
+
+  <!-- 图例 -->
+  <rect x="620" y="690" width="250" height="22" rx="4" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="630" y="705" font-size="10" fill="#475569">实线=主流程  虚线=旁路/回流</text>
+</svg>

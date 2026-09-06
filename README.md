@@ -33,6 +33,19 @@
 
 ---
 
+## 架构 / Architecture
+
+插件内部流水线：入站消息处理 → Segment 流式卡片引擎 → CardKit 推送 → 出站回复。核心是 **SegmentState 段模型**——思考/回答/工具按真实到达顺序记录，增量渲染只刷变化部分（这也是"答案不重复、长回答不超卡片上限"的根基）。
+
+![插件内部架构图](assets/architecture.svg)
+
+> ① 入站：飞书事件 → 授权/去重/策略 → 按回复模式分派（私聊/群聊流式）
+> ② 流式引擎：SegmentState 记录段序 → flush-plan/segments-render 算增量 → controller 节流推送；工具轨迹旁路记录用于面板展示
+> ③ CardKit 推送：流式 `batchUpdate`/`element.content` 打字机 → 终态 `card.update` 整卡（✅ 状态行 + 工作流时间线面板）
+> ④ 出站：IM 消息 / ask_user 交互卡 / cron 主动投递；按钮回调经 `card.action.trigger` 回流重新入站
+
+---
+
 ## 界面预览 / Preview
 
 完成态卡片整体（`✅ 已完成` 状态行置顶、答案完整；底部折叠面板**常驻**，标题一行展示 `🤖model 💭N 🔧N 🎫tokens 📊context ⏱️耗时`；展开后按工作流时间线展示 工具步骤与思考块 交错——`🔧 Fetch` → `💭 思考1` → `🔧 Run` → `💭 思考2` → …）：
