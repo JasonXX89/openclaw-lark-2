@@ -152,7 +152,8 @@ async function install() {
 
     log('\n✅ 安装完成。执行 `openclaw gateway restart` 生效。');
     log('   验证：日志应出现 [reasoning-hook] registered');
-    log('   配置：确认 openclaw.json 里 agents.entries.<agent>.reasoningDefault = "stream"');
+    log('   配置①：确认 openclaw.json 里 agents.entries.<agent>.reasoningDefault = "stream"（主程序层：模型是否产生思考流）');
+    log('   配置②：确认 channels.feishu.footer.showReasoning = true（插件显示层：默认 true；被设 false 会丢弃思考流，💭 面板仍不出现）');
 }
 
 async function uninstall() {
