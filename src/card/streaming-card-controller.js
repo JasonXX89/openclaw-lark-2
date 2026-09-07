@@ -915,6 +915,13 @@ class StreamingCardController {
     async ensureCardCreated() {
         if (this.guard.shouldSkip('ensureCardCreated.precheck'))
             return;
+        // ⚠️ activityOnly（static/群聊回复）：不建也不发活动卡（Jason 定稿 2026-09-07）。
+        // static 模式最终回复走纯文本 deliver，活动卡只造成"先出卡再撤回"的闪现；
+        // 要看卡片必须显式配 replyMode.group: "streaming"（那时 activityOnly=false 走真流式卡）。
+        // cardMessageId 恒空 → 各回调（performFlush/onIdle/onError/abortCard）自然短路，
+        // guard/typing/错误处理等不依赖可见卡片的职责照常工作。
+        if (this.activityOnly)
+            return;
         if (this.cardKit.cardMessageId || this.phase === 'creation_failed' || this.isTerminalPhase) {
             return;
         }
