@@ -81,6 +81,13 @@ cp -r . ~/.openclaw/extensions/openclaw-lark-2   # 同步到扩展目录
       },
       // 多图合并：post（默认）/ sequential（逐张）/ multi-image merge mode
       multiImageMode: "post",
+      // 回复模式 / reply mode（默认 auto：私聊 streaming、群聊 static）
+      // 群聊要出卡片必须显式开 group: "streaming"，否则群聊回纯文本（无卡片）
+      // Group streaming requires explicit `group: "streaming"` — default is static (plain text, no card)
+      replyMode: {
+        group: "static",    // 群聊：static=纯文本 / streaming=流式卡片
+        direct: "streaming" // 私聊：默认已 streaming，可省略
+      },
       // footer 指标全开 / all footer metrics on
       footer: {
         status: true,
@@ -110,6 +117,37 @@ cp -r . ~/.openclaw/extensions/openclaw-lark-2   # 同步到扩展目录
 按钮无反应大多是没配卡片回传回调。在飞书开放平台 → 应用 → **「开发配置」→「事件与回调」→「回调配置」**，订阅方式选**长连接**，添加回调 **`card.action.trigger`**，然后**发布版本**。每个接入的应用都要单独配。
 
 > 只配"接收消息"事件不够——`card.action.trigger` 是回调，不在事件列表里。 / Subscribing to message events alone is NOT enough — the card callback must be added separately.
+
+### 群聊卡片 / Group streaming
+
+**默认群聊不出卡片**（回复纯文本）——这是刻意设计（群聊人多、整卡刷屏打扰），不是 bug。私聊默认 `streaming` 出卡片；群聊要卡片必须显式配 `replyMode.group: "streaming"`。
+
+```json5
+channels: {
+  feishu: {
+    streaming: true,               // 总开关（必须 true，否则全 static）
+    replyMode: {
+      group: "streaming",          // ← 群聊出流式卡片
+      direct: "streaming",         // 私聊（默认已是 streaming，可省略）
+    },
+    // 按账号独立控制：账号级覆盖顶层，互不影响
+    accounts: {
+      botA: { appId: "cli_a", replyMode: { group: "streaming" } }, // 仅 botA 群聊出卡片
+      botB: { appId: "cli_b" },                                     // botB 群聊保持 static
+    },
+  },
+}
+```
+
+| 配置 | 效果 |
+|---|---|
+| 不配 `replyMode`（或 `auto`） | 私聊 `streaming`、群聊 `static`（默认） |
+| `replyMode.group: "streaming"` | 群聊也出流式卡片 |
+| `replyMode.group: "static"` | 显式关掉群聊卡片 |
+| 账号级 `replyMode` | 只影响该账号，覆盖顶层默认 |
+
+> ⚠️ 要用**对象形式** `{ group, direct }` 才能分别控制群聊/私聊；写字符串 `replyMode: "streaming"` 会让群聊私聊一起变 streaming。 / Use the object form to control group vs direct separately; a bare string applies to both.
+> 群聊出卡片仍需机器人被 @ / 命中 allowFrom 才会回复，见上方 `groups` 配置。
 
 ---
 
