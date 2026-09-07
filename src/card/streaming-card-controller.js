@@ -447,8 +447,12 @@ class StreamingCardController {
         this.reasoning.accumulatedReasoningText = split.reasoningText ?? rawText;
         // 记入 segments（快照语义）—— 增量渲染下推理面板文本走 segments 的 text_el_id
         this.segmentState.setReasoningSnapshot(split.reasoningText ?? rawText);
-        // fry-cards 样式：思考进折叠面板，走低频增量 flush（1500ms 节流），不占答案区 15ms 高频通道
-        await this.throttledToolUseStatusUpdate();
+        // ⚠️ 思考帧只刷 reasoning 文本层（throttledCardUpdate → planSegmentFlush 的
+        // dirty stream），不要走 throttledToolUseStatusUpdate —— 它内部会
+        // recordToolActivity() → onToolEvent，在工具 steps 已存在时把刚新建的
+        // reasoning 段当"上一轮已结束思考"终结封存，导致💭思考N 卡在首帧短快照
+        // （实测复现：第二轮思考首帧输出 "jason" 即被终结 → 卡片出现孤立 💭思考2=jason）。
+        await this.throttledCardUpdate();
     }
     async onToolStart(payload) {
         if (!this.shouldProceed('onToolStart'))

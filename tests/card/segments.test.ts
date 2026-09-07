@@ -74,6 +74,34 @@ describe('SegmentState reasoning 面板上限合并（防爆）', () => {
     });
 });
 
+describe('SegmentState reasoning 快照（setReasoningSnapshot）', () => {
+    it('末段是 reasoning 时快照整段覆盖，不新建段', () => {
+        const s = new SegmentState();
+        s.onToolEvent(1); // 工具已出现（steps>=1），先建 tool 段
+        s.setReasoningSnapshot('jason'); // 思考2 首帧
+        s.setReasoningSnapshot('jason is asking me to predict... 完整思考文本'); // 后续帧
+        const reasoning = s.segments.filter((x) => x.type === SegmentType.REASONING);
+        expect(reasoning).toHaveLength(1); // 不应因多帧新建多个 thinking 段
+        expect(reasoning[0].text).toBe('jason is asking me to predict... 完整思考文本');
+        expect(reasoning[0].text).not.toBe('jason'); // 不卡在首帧
+    });
+
+    it('工具段已存在时，reasoning 快照覆盖不会被 onToolEvent 终结（无孤立短段）', () => {
+        const s = new SegmentState();
+        s.onToolEvent(1); // 工具1 已出现
+        // 思考2 流式：快照帧 + 1500ms 节流 tick 交错（修复前 onToolEvent 会终结刚建的段）
+        s.setReasoningSnapshot('jason');
+        s.onToolEvent(1); // 节流 tick（修复后 reasoning 帧不触发，但工具事件本身仍可能交错）
+        s.setReasoningSnapshot('jason asked me to predict 联特科技 完整思考内容 很长很长');
+        const reasoning = s.segments.filter((x) => x.type === SegmentType.REASONING);
+        // 修复语义：思考2 首帧后若同一轮快照继续到达，应覆盖首帧而非被终结成孤立段
+        // （controller 已保证 reasoning 帧不再触发 onToolEvent；此处锁死段模型层不误杀）
+        const lastReasoning = reasoning[reasoning.length - 1];
+        expect(lastReasoning.text).toContain('联特科技');
+        expect(lastReasoning.text).not.toBe('jason');
+    });
+});
+
 describe('SegmentState finalizeSegments', () => {
     it('终结未关闭的 tool 段 + 补算最后 reasoning elapsed', () => {
         const s = new SegmentState();
