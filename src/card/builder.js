@@ -201,8 +201,8 @@ function formatFooterRuntimeSegments(params) {
     if (footer?.model && metrics?.model) {
         const model = metrics.model.trim();
         if (model) {
-            primaryZh.push(`🤖${model}`);
-            primaryEn.push(`🤖${model}`);
+            primaryZh.push(`🦐${model}`);
+            primaryEn.push(`🦐${model}`);
         }
     }
     if (footer?.provider && metrics?.provider) {
@@ -369,13 +369,13 @@ function buildCompleteCard(params) {
             ? tl.filter((e) => e.kind === 'reasoning').length
             : (hasReasoning ? 1 : 0);
         const toolCount = (Array.isArray(toolUseSteps) ? toolUseSteps.length : 0);
-        // 面板标题：🤖 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
+        // 面板标题：🦐 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
         const model = footerMetrics?.model?.trim() ?? '';
         const headerParts = [];
         if (model)
-            headerParts.push(`🤖${model}`);
+            headerParts.push(`🦐${model}`);
         else
-            headerParts.push('🤖');
+            headerParts.push('🦐');
         if (showReasoningPanel)
             headerParts.push(`💭${reasoningCount}`);
         if (showToolsPanel)
@@ -393,7 +393,7 @@ function buildCompleteCard(params) {
         let elapsedZh = '';
         let elapsedEn = '';
         if (fpTitle.primaryZh.length > 0) {
-            const skip = (s) => s.startsWith('🤖') || s.startsWith('🔌');
+            const skip = (s) => s.startsWith('🦐') || s.startsWith('🔌');
             const primaryZh = fpTitle.primaryZh.filter((s) => !skip(s));
             const primaryEn = fpTitle.primaryEn.filter((s) => !skip(s));
             // 耗时挪出：单独放到整行最右
@@ -521,7 +521,7 @@ function buildCompleteCard(params) {
     }
     else if (footer) {
         // fry 样式（借鉴 hermes-fry-cards）：footer 常驻 —— 无面板时也渲染
-        // （✅ 已完成 · ⏱️ · 🎫 · 📊 · 🤖 单行 notation），不渲染面板标题那份指标
+        // （✅ 已完成 · ⏱️ · 🎫 · 📊 · 🦐 单行 notation），不渲染面板标题那份指标
         const fp = formatFooterRuntimeSegments({
             footer,
             metrics: footerMetrics,
