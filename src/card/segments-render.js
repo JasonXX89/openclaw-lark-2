@@ -186,6 +186,13 @@ function buildReasoningFinalizedAction(seg) {
                 expanded: false,
                 header: {
                     title: _reasoningPanelTitle(seg.elapsed_ms),
+                    // ⚠️ partial_update_element 的 header 是整块替换语义——只写 title
+                    // 会把 add 时的 icon（右侧箭头）冲掉，思考终结后面板失去展开/收起
+                    // 提示（2026-09-08 Jason 实测）。必须带全 header 其余字段。
+                    vertical_align: 'center',
+                    icon: _standardGreyIcon(),
+                    icon_position: 'right',
+                    icon_expanded_angle: -180,
                 },
             },
         },
