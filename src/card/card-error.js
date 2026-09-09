@@ -15,6 +15,7 @@ exports.extractSubCode = extractSubCode;
 exports.parseCardApiError = parseCardApiError;
 exports.isCardTableLimitError = isCardTableLimitError;
 exports.isCardRateLimitError = isCardRateLimitError;
+exports.isCardElementLimitError = isCardElementLimitError;
 exports.findMarkdownTablesOutsideCodeBlocks = findMarkdownTablesOutsideCodeBlocks;
 exports.sanitizeTextSegmentsForCard = sanitizeTextSegmentsForCard;
 exports.sanitizeTextForCard = sanitizeTextForCard;
@@ -126,6 +127,23 @@ function isCardRateLimitError(err) {
     if (!parsed)
         return false;
     return parsed.code === exports.CARD_ERROR.RATE_LIMITED;
+}
+/**
+ * 判断错误是否为卡片元素数量超限（card.update 路径）。
+ *
+ * 与 isCardTableLimitError（card.create 的 230099/11310 表格超限）不同：
+ * CardKit card.update 在卡片元素总数超飞书硬限（200）时返回 code=300305，
+ * msg 含 "element exceeds the limit"（2026-09-08 小薇 9 分钟长任务实测）。
+ * 匹配：code=300305，或 subCode=11310 且 errMsg 含 "element exceeds the limit"。
+ */
+function isCardElementLimitError(err) {
+    const parsed = parseCardApiError(err);
+    if (!parsed)
+        return false;
+    if (parsed.code === 300305)
+        return true;
+    return (parsed.subCode === exports.CARD_CONTENT_SUB_ERROR.ELEMENT_LIMIT &&
+        /element exceeds the limit/i.test(parsed.errMsg));
 }
 // ---------------------------------------------------------------------------
 // Text sanitization

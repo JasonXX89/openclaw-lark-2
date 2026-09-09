@@ -789,6 +789,47 @@ class StreamingCardController {
         }
         catch (err) {
             log.warn('final card update failed', { error: String(err) });
+            // ⚠️ 元素超限（300305）兜底：builder 已有 30 步/2000 字预算，若仍被拒
+            // （答案本身超长/思考轮数极多），降级为精简卡（答案 + 纯指标 footer，
+            // 无面板无时间线）重试，保证终态卡必落地、✅ 状态行必显示——否则卡片
+            // 冻结在流式末帧、无法折叠（2026-09-08 小薇 9 分钟长任务实测）。
+            if ((0, card_error_1.isCardElementLimitError)(err) && this.cardKit.cardMessageId) {
+                try {
+                    const fallbackText = this.text.completedText || this.text.accumulatedText
+                        || reply_dispatcher_types_1.EMPTY_REPLY_FALLBACK_TEXT;
+                    const fallbackMetrics = this.needsFooterMetrics() ? await this.getFooterSessionMetrics() : undefined;
+                    const fallbackFooter = { ...this.deps.resolvedFooter, showReasoning: false, showTools: false };
+                    const fallbackCard = (0, builder_1.buildCardContent)('complete', {
+                        text: fallbackText,
+                        elapsedMs: this.elapsed(),
+                        footer: fallbackFooter,
+                        footerMetrics: fallbackMetrics,
+                    });
+                    const fbCardId = this.cardKit.cardKitCardId ?? this.cardKit.originalCardKitCardId;
+                    this.cardKit.cardKitSequence += 1;
+                    if (fbCardId) {
+                        await (0, cardkit_1.updateCardKitCard)({
+                            cfg: this.deps.cfg,
+                            cardId: fbCardId,
+                            card: (0, builder_1.toCardKit2)(fallbackCard),
+                            sequence: this.cardKit.cardKitSequence,
+                            accountId: this.deps.accountId,
+                        });
+                    }
+                    else {
+                        await (0, send_1.updateCardFeishu)({
+                            cfg: this.deps.cfg,
+                            messageId: this.cardKit.cardMessageId,
+                            card: fallbackCard,
+                            accountId: this.deps.accountId,
+                        });
+                    }
+                    log.info('final card fallback applied (element limit)', { elapsedMs: this.elapsed() });
+                }
+                catch (fallbackErr) {
+                    log.warn('final card fallback also failed', { error: String(fallbackErr) });
+                }
+            }
         }
         finally {
             (0, tool_use_trace_store_1.clearToolUseTraceRun)(this.deps.sessionKey);

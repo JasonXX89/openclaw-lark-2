@@ -343,6 +343,25 @@ function buildCompleteCard(params) {
     // 短回复豁免（fry-cards unified_panel_min_duration 语义）：有思考、无工具、总耗时
     // 不足 5s 时不渲染面板 —— 思考内容直接丢弃，答案走纯文本 + footer（与薯条一致）
     const UNIFIED_PANEL_MIN_DURATION_MS = 5000;
+    // ⚠️ 终态卡元素预算（防 300305 element exceeds the limit，2026-09-08 小薇
+    // 9 分钟长任务实测）：飞书卡片硬限 200 元素，工作流时间线把每个工具步骤
+    // 平铺成 3-5 个元素、每轮思考一个子面板（4 元素）。工具步骤超过
+    // TERMINAL_MAX_TOOL_STEPS 只渲染最近 N 步 + 省略提示；单轮思考文本超
+    // TERMINAL_MAX_REASONING_CHARS 截断（同时防 200860 整卡体积超限）。
+    const TERMINAL_MAX_TOOL_STEPS = 30;
+    const TERMINAL_MAX_REASONING_CHARS = 2000;
+    const truncateReasoning = (t) => (t && t.length > TERMINAL_MAX_REASONING_CHARS
+        ? `${t.slice(0, TERMINAL_MAX_REASONING_CHARS)}\n\n<font color='grey'>…（思考过长已截断）</font>`
+        : t);
+    const omittedStepsHint = (n) => ({
+        tag: 'markdown',
+        content: `<font color='grey'>…此前 ${n} 个工具步骤已省略（过程过长，防卡片元素超限）</font>`,
+        i18n_content: {
+            zh_cn: `<font color='grey'>…此前 ${n} 个工具步骤已省略（过程过长，防卡片元素超限）</font>`,
+            en_us: `<font color='grey'>…${n} earlier tool steps omitted (card element limit)</font>`,
+        },
+        text_size: 'notation',
+    });
     // footer.showReasoning/showTools 门控（默认 true）：false 时隐藏思考/工具面板
     const showReasoningPanel = footer?.showReasoning !== false;
     const showToolsPanel = (footer?.showTools !== false) && showToolUse;
@@ -437,9 +456,18 @@ function buildCompleteCard(params) {
         const timeline = Array.isArray(workflowTimeline) ? workflowTimeline : [];
         if (timeline.length > 0) {
             const stepsArr = Array.isArray(toolUseSteps) ? toolUseSteps : [];
+            // 元素预算：只渲染最近 TERMINAL_MAX_TOOL_STEPS 步，更早的合并成省略提示
+            const omittedCount = Math.max(0, stepsArr.length - TERMINAL_MAX_TOOL_STEPS);
+            let hintInserted = false;
+            const insertHintOnce = () => {
+                if (omittedCount > 0 && !hintInserted) {
+                    unifiedChildren.push(omittedStepsHint(omittedCount));
+                    hintInserted = true;
+                }
+            };
             for (const entry of timeline) {
                 if (entry.kind === 'reasoning') {
-                    const rsnText = entry.text?.trim();
+                    const rsnText = truncateReasoning(entry.text?.trim());
                     if (!rsnText) continue;
                     // 思考标题带序号、不带耗时秒（Jason 定稿）：💭 思考1 / 💭 思考2 …
                     unifiedChildren.push(buildCompleteSubPanel({
@@ -457,7 +485,14 @@ function buildCompleteCard(params) {
                 else if (entry.kind === 'tools') {
                     const from = Math.max(0, entry.from ?? 0);
                     const to = Math.min(stepsArr.length, entry.to ?? stepsArr.length);
-                    for (let i = from; i < to; i++) {
+                    // 该组含被省略的步骤 → 先补一条省略提示（只插一次）
+                    if (from < omittedCount) {
+                        insertHintOnce();
+                    }
+                    if (to <= omittedCount) {
+                        continue; // 整组都在省略区间
+                    }
+                    for (let i = Math.max(from, omittedCount); i < to; i++) {
                         const step = stepsArr[i];
                         if (step) {
                             unifiedChildren.push(...buildToolUseStepElements(step));
@@ -472,13 +507,19 @@ function buildCompleteCard(params) {
                     titleI18n: { zh_cn: '💭 思考过程', en_us: '💭 Reasoning' },
                     children: [{
                         tag: 'markdown',
-                        content: reasoningTextFinal,
+                        content: truncateReasoning(reasoningTextFinal),
                         text_size: 'notation',
                     }],
                 }));
             }
             if (hasTools) {
-                unifiedChildren.push(...toolUseSteps.flatMap((step) => buildToolUseStepElements(step)));
+                // 同样受元素预算约束：只渲染最近 N 步 + 省略提示
+                const allSteps = toolUseSteps;
+                const omitted = Math.max(0, allSteps.length - TERMINAL_MAX_TOOL_STEPS);
+                if (omitted > 0) {
+                    unifiedChildren.push(omittedStepsHint(omitted));
+                }
+                unifiedChildren.push(...allSteps.slice(omitted).flatMap((step) => buildToolUseStepElements(step)));
             }
         }
         // 空态（0 思考 0 工具）：面板常驻但展开后给占位提示，避免空白
