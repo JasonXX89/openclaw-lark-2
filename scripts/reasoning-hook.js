@@ -17,7 +17,7 @@
 const path = require('path');
 const { registerHooks } = require('module');
 
-const NEEDLE = 'if (reasoningUsesConfiguredDefault && !canUseReasoningState) resolvedReasoningLevel = "off";';
+const NEEDLE = 'reasoningUsesConfiguredDefault && !canUseReasoningState) resolvedReasoningLevel = "off";';
 const REPLACEMENT = '/* reasoning-gate-hook: reasoningDefault 对普通消息生效 */';
 const MARKER = 'reasoning-gate-hook';
 
@@ -31,6 +31,12 @@ function maybePatchSource(source, url) {
         } else {
             return source;
         }
+    }
+    // ⚠️ 匹配失败必须可见：needle 是对 minified dist 的脆弱匹配，OpenClaw 升级
+    // 改格式（如 2026.9.3 压掉 "if (" 换行）就会静默失配、💭 面板消失。报警。
+    const GATE_HINT = 'resolvedReasoningLevel = "off"';
+    if (source.includes(GATE_HINT) && !source.includes(NEEDLE)) {
+        process.stderr.write(`[reasoning-hook] NEEDLE MISS in ${path.basename(url)}: gate 代码存在但格式变了，需更新 NEEDLE（对照 dist 源码）\n`);
     }
     if (source.includes(NEEDLE)) {
         const patched = source.replace(NEEDLE, REPLACEMENT);
@@ -46,9 +52,14 @@ try {
     registerHooks({
         load(url, context, nextLoad) {
             const result = nextLoad(url, context);
-            if (result && result.source && url.includes('/dist/get-reply-')) {
-                result.source = maybePatchSource(result.source, url);
-            }
+            // ⚠️ 只碰 get-reply 模块，且只在源码是 string 时才改写。
+            // 2026-09-10 踩坑：把 Buffer/Uint8Array 源码转成 string 返回会改变
+            // 返回类型，破坏下游加载器（插件/Sidecar 报 SyntaxError: Unexpected
+            // token 'const'），导致 gateway 启动即退出。绝不改非目标模块。
+            if (!result || result.source == null) return result;
+            if (!url.includes('/dist/get-reply-')) return result;
+            if (typeof result.source !== 'string') return result;
+            result.source = maybePatchSource(result.source, url);
             return result;
         },
     });
