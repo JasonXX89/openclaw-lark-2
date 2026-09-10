@@ -170,7 +170,13 @@ exports.FeishuAccountConfigSchema = zod_1.z.object({
     mediaMaxMb: zod_1.z.number().optional(),
     heartbeat: HeartbeatSchema,
     replyMode: ReplyModeSchema,
-    streaming: zod_1.z.boolean().optional(),
+    // streaming：兼容布尔（旧）与对象（新版官方规范化格式，2026.9.3 起）。
+    // 官方归一化 boolean true ⇔ {mode:"partial"}，false ⇔ {mode:"off"}；
+    // 只写 boolean 会在 OpenClaw 规范化后校验失败，故两种都接受。
+    streaming: zod_1.z.union([
+        zod_1.z.boolean(),
+        zod_1.z.object({ mode: zod_1.z.enum(['off', 'partial', 'block', 'progress']).optional() }),
+    ]).optional(),
     blockStreaming: zod_1.z.boolean().optional(),
     // Merge multiple image URLs into one rich-text post ("post", default) or
     // keep the legacy per-image sends ("sequential").
