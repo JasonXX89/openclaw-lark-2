@@ -45,7 +45,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
-| **2026.9.6** | 2026-09-06 | 折叠面板常驻 + 💭N🔧N 真实计数常显 + 思考流默认折叠 + 工作流时间线展开区 + Segment 流式重构（答案单段、防平方膨胀）+ 状态行置顶 + 审计加固 + reasoning hook 可选补丁 / Always-on panel with real 💭N🔧N counts, workflow-timeline expansion, Segment refactor, status line on top, audit hardening, optional reasoning-hook patch |
+| **2026.9.7** | 2026-09-10 | 兼容 OpenClaw 2026.9.3（streaming 对象形式 + reasoning hook 适配新 dist）+ 终态卡元素预算防 300305 爆卡 + 思考终结面板箭头修复 + 模型标识 🦐 / OpenClaw 2026.9.3 compat (object-form `streaming`, hook needle update), terminal-card element budget to prevent 300305 overflow, reasoning-panel arrow fix, 🦐 model badge |
 
 ---
 
@@ -53,7 +53,7 @@
 
 ```bash
 # tarball（本机开发）/ via tarball
-npm pack && openclaw plugins install openclaw-lark-2-2026.9.6.tgz
+npm pack && openclaw plugins install openclaw-lark-2-2026.9.7.tgz
 
 # 或从源码 / or from source
 git clone https://github.com/JasonXX89/openclaw-lark-2.git
