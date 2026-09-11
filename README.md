@@ -159,11 +159,35 @@ channels: {
 
 OpenClaw 主程序 dist 有一道**授权 gate**：普通消息（不带指令）会把 `resolvedReasoningLevel` 压成 `"off"`，推理流根本不发给插件——即使模型在思考、`reasoningDefault` 已设 `"stream"`。这是主程序行为，**插件配置层绕不过**，只能补丁 OpenClaw 本体。
 
-### 原理
+### 原理与推荐方案
 
-`scripts/reasoning-hook.js` 是 **Node ESM loader hook**（`module.registerHooks`，Node ≥ 22.15）：OpenClaw 加载 `dist/get-reply-*.js` 时在**内存**把那行 gate 替换成注释，磁盘文件保持原版 → `npm update -g openclaw` 不受影响。安装脚本负责把 hook 复制到运行区插件 `scripts/` 并给 `~/.openclaw/gateway.cmd` 加 `--import`。
+在 OpenClaw 2026.9.3+ 中，官方提供了原生的授权机制。**推荐优先使用原生配置，无需安装任何补丁**：
 
-### 安装顺序（顺序不能反）
+#### 方案 A：官方原生配置（推荐，升级永不失效）
+
+只需在 `~/.openclaw/openclaw.json` 的顶层 `commands` 中加入你的飞书用户 `ou_id`（或 `"*"` 通配）：
+
+```json5
+"commands": {
+  "native": "auto",
+  "nativeSkills": "auto",
+  "restart": true,
+  "allowFrom": {
+    "feishu": [
+      "ou_xxxxxx" // 填入你的飞书 open_id（支持多账号，也可直接填 "*"）
+    ]
+  }
+}
+```
+
+配置后重启网关 `openclaw gateway restart`，发送者即可获得原生授权，思考流对普通消息直接生效。
+
+#### 方案 B：Node ESM loader hook 补丁（旧版本 OpenClaw 备用）
+
+若使用的 OpenClaw 版本较低未支持 `commands.allowFrom`，可使用项目自带的 Hook 补丁：
+`scripts/reasoning-hook.js` 借助 Node ESM loader hook 在内存中解除 gate。
+
+### 安装顺序（仅方案 B 补丁需要）
 
 ```text
 ① 先装 lark-2 插件（卡片能力本体）→ 重启 gateway
