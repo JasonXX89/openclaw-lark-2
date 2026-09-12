@@ -890,7 +890,7 @@ function buildStreamingReasoningPanel(params) {
 function buildStreamingToolUseActivePanel(params) {
     const { steps, elapsedMs } = params;
     const enParts = ['Tool use'];
-    const zhParts = ['工具执行'];
+    const zhParts = ['工具调用中'];
     if (steps.length > 0) {
         enParts.push(`${steps.length} step${steps.length === 1 ? '' : 's'}`);
         zhParts.push(`${steps.length} 步`);

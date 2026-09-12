@@ -1,7 +1,7 @@
 {
   "name": "@mirr0ch1/openclaw-lark-2",
-  "version": "2026.9.7",
-  "description": "OpenClaw 2.0 (2026.8.1+) 飞书/Lark 渠道插件 — based on @larksuite/openclaw-lark@2026.7.16 with 2.0 SDK compatibility patches",
+  "version": "2026.9.8",
+  "description": "OpenClaw 2.0 (2026.8.1+) 专属飞书/Lark 渠道插件 — 原生 Segment 流式卡片、思考流与工具折叠时间线、完整多账号支持",
   "exports": {
     ".": {
       "types": "./index.d.ts",

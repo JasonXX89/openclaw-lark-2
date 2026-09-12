@@ -1,11 +1,11 @@
 # openclaw-lark-2
-
+ 
 **OpenClaw 2.0（2026.8.1+）专属飞书 / Lark 渠道插件** · An OpenClaw 2.0 (2026.8.1+) Feishu/Lark channel plugin, adapted from `@larksuite/openclaw-lark`.
-
+ 
 > 🧑‍💻 OpenClaw 2.0 适配 by [@mirr0ch1](https://github.com/mirr0ch1)（[Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2)）
 > 🎨 流式卡片样式参考 [hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) by [@techysy](https://github.com/techysy)
-
-上游 `@larksuite/openclaw-lark` 未跟进 OpenClaw 2.0 的 SDK 重构（导入路径、SQLite 迁移），导致无法加载、卡片指标丢失。本插件针对 2.0 全面适配，开箱即用。 / Fully adapted to the OpenClaw 2.0 SDK — the upstream `@larksuite/openclaw-lark` no longer loads on 2.0.
+ 
+深度适配 OpenClaw 2.0 SDK 与 2026.9.3+ 架构：原生 Segment 流式卡片引擎、思考流与工具折叠时间线、防爆卡预算控制、多账号与群聊流式完整支持。 / Fully adapted to the OpenClaw 2.0+ SDK with native Segment-driven streaming cards, thinking & tool workflow timelines, and full multi-account support.
 
 ---
 
@@ -45,15 +45,15 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
-| **2026.9.7** | 2026-09-11 | 兼容 OpenClaw 2026.9.3（streaming 对象形式 + 官方 commands.allowFrom 原生免补丁思考流配置 + 衍生模型 extra_body 透传指南）+ 终态卡元素预算防 300305 爆卡 + 思考终结面板箭头修复 + 模型标识 🦐 / OpenClaw 2026.9.3 compat (object-form `streaming`, native `commands.allowFrom` zero-patch thinking guide, `extra_body` model passthrough), terminal-card element budget to prevent 300305 overflow, reasoning-panel arrow fix, 🦐 model badge |
+| **2026.9.8** | 2026-09-12 | 流式卡片工具折叠标题优化为「🛠️ 工具调用中」+ 修复多工具更新时右侧折叠小箭头丢失 bug + 官方 commands.allowFrom 思考流免补丁支持与衍生模型 extra_body 透传指引 / Streaming tool-panel title updated to "Tool use", fixed right-arrow missing bug on multiple tool updates, native zero-patch thinking guide & extra_body model passthrough |
 
 ---
 
 ## 安装 / Installation
 
 ```bash
-# tarball（本机开发）/ via tarball
-npm pack && openclaw plugins install openclaw-lark-2-2026.9.7.tgz
+# 方式 A：直接安装发布包（推荐）/ Recommended
+npm pack && openclaw plugins install openclaw-lark-2-2026.9.8.tgz
 
 # 或从源码 / or from source
 git clone https://github.com/JasonXX89/openclaw-lark-2.git

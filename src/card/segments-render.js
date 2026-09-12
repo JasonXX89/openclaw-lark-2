@@ -48,7 +48,7 @@ function _reasoningPanelTitle(elapsedMs) {
 /** tool 面板标题 */
 function _toolPanelTitle(stepCount, elapsedMs) {
     const enParts = ['Tool use'];
-    const zhParts = ['工具执行'];
+    const zhParts = ['工具调用中'];
     if (stepCount > 0) {
         enParts.push(`${stepCount} step${stepCount === 1 ? '' : 's'}`);
         zhParts.push(`${stepCount} 步`);
@@ -217,6 +217,13 @@ function buildToolUpdateAction(elementId, steps, elapsedMs) {
             partial_element: {
                 header: {
                     title: _toolPanelTitle(steps.length, elapsedMs),
+                    // ⚠️ partial_update_element 的 header 是整块替换语义——只写 title
+                    // 会把 add 时的 icon（右侧箭头）冲掉，工具更新后面板失去展开/收起
+                    // 提示（2026-09-11 Jason 实测）。必须带全 header 其余字段。
+                    vertical_align: 'center',
+                    icon: _standardGreyIcon(),
+                    icon_position: 'right',
+                    icon_expanded_angle: -180,
                 },
                 elements: steps.flatMap((step) => buildToolStepElements(step)),
             },

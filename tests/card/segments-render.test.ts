@@ -172,8 +172,12 @@ describe('buildToolUpdateAction', () => {
         const action = buildToolUpdateAction('tool_panel', steps, 2100);
         expect(action.action).toBe('partial_update_element');
         expect(action.params.element_id).toBe('tool_panel');
-        // header shows 2 steps
+        // header shows 2 steps and preserves right arrow icon
         expect(action.params.partial_element.header.title.content).toContain('2 steps');
+        expect(action.params.partial_element.header.title.i18n_content.zh_cn).toContain('工具调用中');
+        expect(action.params.partial_element.header.icon.token).toBe('down-small-ccm_outlined');
+        expect(action.params.partial_element.header.icon_position).toBe('right');
+        expect(action.params.partial_element.header.icon_expanded_angle).toBe(-180);
         // children = step elements
         expect(action.params.partial_element.elements.length).toBeGreaterThanOrEqual(2);
     });
