@@ -5,7 +5,7 @@
 > 🧑‍💻 OpenClaw 2.0 适配 by [@mirr0ch1](https://github.com/mirr0ch1)（[Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2)）
 > 🎨 流式卡片样式参考 [hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) by [@techysy](https://github.com/techysy)
  
-深度适配 OpenClaw 2.0+ SDK 与 2026.9.3+ 架构：原生 Segment 流式卡片引擎、思考流与工具折叠时间线、防爆卡预算控制、多账号与群聊流式完整支持。 / Fully adapted to OpenClaw 2.0+ SDK with native Segment-driven streaming cards, thinking & tool workflow timelines, and full multi-account support.
+深度适配 OpenClaw 2.0+ SDK 与 2026.9.4 架构：原生 Segment 流式卡片引擎、思考流与工具折叠时间线、防爆卡预算控制、多账号与群聊流式完整支持。 / Fully adapted to OpenClaw 2.0+ SDK (verified on 2026.9.4) with native Segment-driven streaming cards, thinking & tool workflow timelines, and full multi-account support.
 
 ---
 
@@ -36,7 +36,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
-| **2026.9.8** | 2026-09-12 | 流式卡片工具折叠标题优化为「🛠️ 工具调用中 · N 步」+ 修复多工具步骤更新时右侧折叠小箭头丢失 bug + 官方 commands.allowFrom 思考流免补丁支持与衍生模型 extra_body 透传指引 |
+| **2026.9.8** | 2026-09-12 | 流式卡片工具折叠标题优化为「🛠️ 工具调用中 · N 步」+ 修复多工具步骤更新时右侧折叠小箭头丢失 bug + 官方 commands.allowFrom 思考流免补丁支持与衍生模型 extra_body 透传指引（全量通过 OpenClaw 2026.9.4 实测验证）|
 | **2026.9.7** | 2026-09-10 | 兼容 OpenClaw 2026.9.3（streaming 规范化对象形式）+ 终态卡元素预算防 300305 爆卡 + 思考终结面板右侧箭头保全修复 + 模型标识 🦐 |
 | **2026.9.6** | 2026-09-06 | 工作流时间线交错展开（折叠面板内 `💭 思考N` 与工具步骤按真实顺序交错）+ Segment 流式引擎重构（单段 answer、打字机增量防平方膨胀）+ 状态行置顶 + 审计安全加固 |
 | **2026.9.4** | 2026-09-03 | 多图合并为一条富文本 post（`channels.feishu.multiImageMode`）+ 卡片样式重构（思考/工具收进单一底部折叠面板、运行指标标题集成）|
@@ -109,7 +109,7 @@ openclaw gateway restart
 ## 思考流（💭）原生配置与排坑指南
 
 > 💡 **强烈建议：100% 采用官方原生配置，完全无需安装任何 Hook 补丁！**
-> 自 OpenClaw 2026.9.3 起，官方已原生支持通过白名单放行普通消息的思考流，纯配置、零入侵、升级永不失效。
+> 自 OpenClaw 2026.9.3 / 2026.9.4 起，官方已原生支持通过白名单放行普通消息的思考流，纯配置、零入侵、升级永不失效。
 
 ### 1. 开启官方原生授权（推荐）
 
@@ -155,7 +155,7 @@ openclaw gateway restart
 
 > ⚠️ **使用范围说明**：
 > - **仅适用于 OpenClaw < 2026.9.3 的老版本**。
-> - **2026.9.3 及以上版本严禁安装**：新版已有上方原生免补丁方案。Hook 补丁依赖脆弱的内存代码替换，在大版本升级后极易产生匹配漂移与维护负担。若此前曾安装过，请务必执行卸载还原纯净启动。
+> - **2026.9.3 / 2026.9.4+ 用户严禁安装**：新版已有上方原生免补丁方案。Hook 补丁依赖脆弱的内存代码替换，在大版本升级后极易产生匹配漂移与维护负担。若此前曾安装过，请务必执行卸载还原纯净启动。
 
 ```bash
 # 仅老版本备用：在插件运行目录下安装
