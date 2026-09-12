@@ -45,7 +45,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
-| **2026.9.7** | 2026-09-10 | 兼容 OpenClaw 2026.9.3（streaming 对象形式 + reasoning hook 适配新 dist）+ 终态卡元素预算防 300305 爆卡 + 思考终结面板箭头修复 + 模型标识 🦐 / OpenClaw 2026.9.3 compat (object-form `streaming`, hook needle update), terminal-card element budget to prevent 300305 overflow, reasoning-panel arrow fix, 🦐 model badge |
+| **2026.9.7** | 2026-09-11 | 兼容 OpenClaw 2026.9.3（streaming 对象形式 + 官方 commands.allowFrom 原生免补丁思考流配置 + 衍生模型 extra_body 透传指南）+ 终态卡元素预算防 300305 爆卡 + 思考终结面板箭头修复 + 模型标识 🦐 / OpenClaw 2026.9.3 compat (object-form `streaming`, native `commands.allowFrom` zero-patch thinking guide, `extra_body` model passthrough), terminal-card element budget to prevent 300305 overflow, reasoning-panel arrow fix, 🦐 model badge |
 
 ---
 
@@ -181,6 +181,31 @@ OpenClaw 主程序 dist 有一道**授权 gate**：普通消息（不带指令�
 ```
 
 配置后重启网关 `openclaw gateway restart`，发送者即可获得原生授权，思考流对普通消息直接生效。
+
+> 💡 **排坑技巧：为什么配了授权卡片依然不显示思考？（第三方/兼容模型必备）**
+> 
+> 卡片展示思考流需要两个环节同时就绪：
+> 1. **系统门禁放行**：通过上方的 `commands.allowFrom.feishu` 放行（日志/数据库中显示 `reasoningLevel: 'stream'`）；
+> 2. **模型产生思考**：模型 API 必须在实际流式响应中输出 `reasoning_content`。
+> 
+> **注意**：部分第三方或代理模型（如 `cbcn/deepseek-v4.1-flash`）裸请求默认不思考，而 OpenClaw 内置白名单（只认 `deepseek-v4-flash` 和 `pro`）无法自动识别带有小版本号的模型。如果直接在 `models.providers` 填写 `params`，OpenClaw 会静默过滤丢弃。
+> 
+> **正确解法**：在 `openclaw.json` 的 `agents.defaults.models` 下通过 `extra_body` 显式强制透传：
+> ```json5
+> "agents": {
+>   "defaults": {
+>     "models": {
+>       "10router/cbcn/deepseek-v4.1-flash": {
+>         "params": {
+>           "extra_body": {
+>             "reasoning_effort": "medium" // 强制模型开启并输出思考流
+>           }
+>         }
+>       }
+>     }
+>   }
+> }
+> ```
 
 #### 方案 B：Node ESM loader hook 补丁（旧版本 OpenClaw 备用）
 
