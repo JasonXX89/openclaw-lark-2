@@ -2,9 +2,6 @@
  
 **OpenClaw 2.0（2026.8.1+）专属飞书 / Lark 渠道插件** · An OpenClaw 2.0 (2026.8.1+) Feishu/Lark channel plugin, adapted from `@larksuite/openclaw-lark`.
  
-> 🧑‍💻 OpenClaw 2.0 适配 by [@mirr0ch1](https://github.com/mirr0ch1)（[Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2)）
-> 🎨 流式卡片样式参考 [hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) by [@techysy](https://github.com/techysy)
- 
 深度适配 OpenClaw 2.0+ SDK 与 2026.9.4 架构：原生 Segment 流式卡片引擎、思考流与工具折叠时间线、防爆卡预算控制、多账号与群聊流式完整支持。 / Fully adapted to OpenClaw 2.0+ SDK (verified on 2026.9.4) with native Segment-driven streaming cards, thinking & tool workflow timelines, and full multi-account support.
 
 ---
@@ -179,9 +176,10 @@ npm run test:watch # 监听模式
 
 ---
 
-## 许可 / License
+## 参考与许可 / References & License
 
-本项目基于 MIT 协议开源，原版权声明保留：
-- [larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark) — 飞书官方
-- [Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2) — OpenClaw 2.0 适配版
-- [techysy/hermes-fry-cards](https://github.com/techysy/hermes-fry-cards) — 流式卡片样式参考
+本项目基于 MIT 协议开源，原版权声明保留，在此致谢相关项目与作者 / Adapted from and inspired by these projects under the MIT License (original copyrights retained):
+
+- 飞书官方插件：[larksuite/openclaw-lark](https://github.com/larksuite/openclaw-lark)
+- OpenClaw 2.0 适配参考：[@mirr0ch1](https://github.com/mirr0ch1)（[Mirr0ch1/openclaw-lark-2](https://github.com/Mirr0ch1/openclaw-lark-2)）
+- 流式卡片样式参考：[@techysy](https://github.com/techysy)（[hermes-fry-cards](https://github.com/techysy/hermes-fry-cards)）
