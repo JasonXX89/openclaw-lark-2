@@ -48,8 +48,8 @@
 
   <!-- 引擎内部工具记录旁路 -->
   <rect x="60" y="330" width="260" height="56" rx="8" fill="#fef3c7" stroke="#d97706"/>
-  <text x="190" y="353" text-anchor="middle" font-size="12" font-weight="600" fill="#78350f">工具轨迹记录</text>
-  <text x="190" y="370" text-anchor="middle" font-size="10" fill="#475569">tool-use-trace-store</text>
+  <text x="190" y="353" text-anchor="middle" font-size="12" font-weight="600" fill="#78350f">工具轨迹追踪</text>
+  <text x="190" y="370" text-anchor="middle" font-size="10" fill="#475569">tool-use-trace-store · 幂等防重/精简</text>
 
   <rect x="580" y="330" width="260" height="56" rx="8" fill="#fef3c7" stroke="#d97706"/>
   <text x="710" y="353" text-anchor="middle" font-size="12" font-weight="600" fill="#78350f">工具调用</text>
@@ -72,8 +72,8 @@
   <text x="175" y="505" text-anchor="middle" font-size="10" fill="#475569">card.batchUpdate · element.content</text>
 
   <rect x="320" y="465" width="230" height="60" rx="8" fill="#e0e7ff" stroke="#4f46e5"/>
-  <text x="435" y="488" text-anchor="middle" font-size="12" font-weight="600" fill="#312e81">终态整卡</text>
-  <text x="435" y="505" text-anchor="middle" font-size="10" fill="#475569">complete-replay + builder</text>
+  <text x="435" y="488" text-anchor="middle" font-size="12" font-weight="600" fill="#312e81">终态整卡生成</text>
+  <text x="435" y="505" text-anchor="middle" font-size="10" fill="#475569">防爆卡预算(300305) · complete-replay</text>
 
   <rect x="580" y="465" width="260" height="60" rx="8" fill="#e0e7ff" stroke="#4f46e5"/>
   <text x="710" y="488" text-anchor="middle" font-size="12" font-weight="600" fill="#312e81">飞书 CardKit 2.0</text>
