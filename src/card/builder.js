@@ -391,10 +391,15 @@ function buildCompleteCard(params) {
         // 面板标题：🦐 model · 💭n · 🔧n（头部速览，后续指标段在下方拼接）
         const model = footerMetrics?.model?.trim() ?? '';
         const headerParts = [];
-        if (model)
-            headerParts.push(`🦐${model}`);
-        else
+        if (model) {
+            // 只剥离 10router/ 等外层 provider 网关前缀，保留渠道与模型名：10router/cbcn/deepseek-v4.1-flash -> cbcn/deepseek-v4.1-flash
+            const parts = model.split('/');
+            const displayModel = parts.length > 2 ? parts.slice(1).join('/') : (model.startsWith('10router/') ? model.slice(9) : model);
+            headerParts.push(`🦐${displayModel}`);
+        }
+        else {
             headerParts.push('🦐');
+        }
         if (showReasoningPanel)
             headerParts.push(`💭${reasoningCount}`);
         if (showToolsPanel)
@@ -432,7 +437,7 @@ function buildCompleteCard(params) {
             reorderedZh.push(...primaryZh);
             reorderedEn.push(...primaryEn);
             if (reorderedZh.length > 0) {
-                titleParts.push(reorderedZh.join('  '));
+                titleParts.push(reorderedZh.join(' '));
             }
         }
         if (fpTitle.detailZh.length > 0) {
@@ -440,14 +445,14 @@ function buildCompleteCard(params) {
             const detailFiltered = fpTitle.detailZh.filter((s) => !s.startsWith('📦'));
             const detailFilteredEn = fpTitle.detailEn.filter((s) => !s.startsWith('📦'));
             if (detailFiltered.length > 0) {
-                titleParts.push(detailFiltered.join('  '));
+                titleParts.push(detailFiltered.join(' '));
             }
         }
         // 耗时放到整行最右（📊 上下文段之后）
         if (elapsedZh) {
             titleParts.push(elapsedZh);
         }
-        const headerText = [headerParts.join('  '), ...titleParts].filter(Boolean).join('  ');
+        const headerText = [headerParts.join(' '), ...titleParts].filter(Boolean).join(' ');
         // 外层统一面板展开后：默认（无 timeline）保留薯条样式——💭 思考是嵌套
         // 子折叠面板，🔧 工具步骤直接平铺。有 workflowTimeline（controller 从
         // SegmentState 提取的保序过程）时，按真实发生顺序交错展示：
@@ -1058,8 +1063,9 @@ function buildToolUseStepTitleElement(step) {
     };
 }
 function buildToolUseStepTitleMarkdown(step) {
+    const titleText = `**${escapeToolUseMarkdownText(step.title)}**`;
     const status = formatToolUseStepStatus(step.status);
-    return (0, markdown_style_1.optimizeMarkdownStyle)(`**${escapeToolUseMarkdownText(step.title)}** · <font color='${status.color}'>${status.label}</font>`, 1);
+    return (0, markdown_style_1.optimizeMarkdownStyle)(`${titleText} · <font color='${status.color}'>${status.label}</font>`, 1);
 }
 function buildToolUseStepDetailElement(step) {
     const detail = step.detail?.trim();

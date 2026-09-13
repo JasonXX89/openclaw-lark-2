@@ -12,6 +12,16 @@ exports.buildToolUseTitleSuffix = buildToolUseTitleSuffix;
 const reasoning_utils_1 = require("./reasoning-utils.js");
 exports.EMPTY_TOOL_USE_PLACEHOLDER = 'No tool steps available';
 const DEFAULT_SUMMARY_PREFERENCE = ['matched', 'code', 'quoted', 'url', 'line'];
+/**
+ * 工具步骤 detail 的**显示层**长度上限。
+ *
+ * 与 trace-store 的采集上限（COMMAND_STRING_LIMIT=4096 等）是两回事：采集层
+ * 保存完整值供排查，显示层只给卡片一行。lark-2 的 detail 取自工具参数原文
+ * （薯条 fry 取的是宿主下发的工具摘要，天然短），不截断时 exec 一步能把整条
+ * 几千字符命令铺到卡片上——这是「工具流太详细」的根因。
+ * 对齐薯条卡片风格：单行紧凑展示（80 字符）。
+ */
+const TOOL_DETAIL_DISPLAY_LIMIT = 80;
 const TOOL_DESCRIPTORS = [
     {
         aliases: ['skill'],
@@ -26,6 +36,7 @@ const TOOL_DESCRIPTORS = [
         iconToken: 'file-link-text_outlined',
         title: 'Read',
         sanitizer: 'path',
+        noResult: true,
         paramKeys: ['file_path', 'path', 'file'],
         summaryPatterns: [/^(?:read|open)\s+(?:file\s+)?(.+)$/i],
         summaryPreference: ['code', 'quoted', 'matched', 'line'],
@@ -35,6 +46,7 @@ const TOOL_DESCRIPTORS = [
         iconToken: 'edit_outlined',
         title: 'Edit',
         sanitizer: 'path',
+        noResult: true,
         paramKeys: ['file_path', 'path', 'file'],
         summaryPatterns: [/^(?:edit|write)\s+(?:file\s+)?(.+)$/i],
         summaryPreference: ['code', 'quoted', 'matched', 'line'],
@@ -53,6 +65,7 @@ const TOOL_DESCRIPTORS = [
         iconToken: 'language_outlined',
         title: 'Fetch web page',
         sanitizer: 'url',
+        noResult: true,
         paramKeys: ['url'],
         summaryPatterns: [/^(?:fetch|open)\s+(?:web\s+page\s+)?(?:from\s+)?(.+)$/i],
         summaryPreference: ['url', 'matched', 'quoted', 'line'],
@@ -87,6 +100,7 @@ const TOOL_DESCRIPTORS = [
         iconToken: 'browser-mac_outlined',
         title: 'Browser',
         sanitizer: 'url',
+        noResult: true,
         paramKeys: ['url'],
         summaryPatterns: [/^(?:open|browse|visit|navigate\s+to)\s+(.+)$/i],
         summaryPreference: ['url', 'quoted', 'matched', 'line'],
@@ -113,15 +127,35 @@ const TOOL_DESCRIPTORS = [
         sanitizer: 'generic',
         paramKeys: ['target', 'subject', 'description'],
     },
+    // 对齐 hermes-fry-cards 的 _TOOL_DESCRIPTORS：skill / clarify 均标记 no_result
+    // —— 它们的结果对人类无阅读价值（skill 是提示词正文、clarify 是选项列表），
+    // 铺到卡片上只会让工具流变成一堵墙。
+    {
+        aliases: ['clarify', 'ask'],
+        iconToken: 'chat_outlined',
+        title: 'Clarify',
+        sanitizer: 'generic',
+        noResult: true,
+        paramKeys: ['question', 'prompt'],
+    },
 ];
 function normalizeToolUseDisplay(params) {
     const traceSteps = params.traceSteps ?? [];
     const showFullPaths = params.showFullPaths === true;
     const showResultDetails = params.showResultDetails === true;
     const sources = traceSteps.map(toTraceSource);
-    const steps = sources
+    const rawSteps = sources
         .map((source) => formatToolStep(source, { showFullPaths, showResultDetails }))
         .filter((step) => !!step);
+    // 展示层相邻去重兜底：若连续两条步骤标题和入参完全相同，只保留一条
+    const steps = [];
+    for (const step of rawSteps) {
+        const prev = steps[steps.length - 1];
+        if (prev && prev.title === step.title && prev.detail === step.detail && prev.status === step.status) {
+            continue;
+        }
+        steps.push(step);
+    }
     return {
         content: steps.map((step) => (step.detail ? `- ${step.title}: ${step.detail}` : `- ${step.title}`)).join('\n'),
         stepCount: steps.length,
@@ -150,7 +184,9 @@ function formatToolStep(source, options) {
     const rawDetail = (descriptor ? extractDetailFromParams(source.params, descriptor) : undefined) ??
         (descriptor ? extractDetailFromSummary(source.summaryText, descriptor) : cleanupLine(source.summaryText ?? '')) ??
         undefined;
-    const detail = rawDetail ? sanitizeToolDetail(descriptor?.sanitizer ?? 'generic', rawDetail, options) : undefined;
+    const detail = rawDetail
+        ? limitDetailForDisplay(sanitizeToolDetail(descriptor?.sanitizer ?? 'generic', rawDetail, options))
+        : undefined;
     const title = buildToolTitle(source, descriptor, rawDetail);
     const status = resolveStepStatus(source);
     const errorBlock = source.error ? buildErrorBlock(source.error, descriptor) : undefined;
@@ -170,6 +206,22 @@ function buildToolTitle(source, descriptor, rawDetail) {
         : (descriptor?.title ?? humanizeToolName(source.toolName ?? 'tool'));
     const durationLabel = source.durationMs != null ? formatDurationLabel(source.durationMs) : undefined;
     return durationLabel ? `${baseTitle} (${durationLabel})` : baseTitle;
+}
+/**
+ * 把 detail 压到卡片一行的体量。
+ *
+ * 优先在词/路径边界断开（空格、`/`、`\`），避免把 `flutter build` 切成
+ * `flutter buil…` 这种半截词；实在找不到边界才硬切。
+ */
+function limitDetailForDisplay(value) {
+    if (!value || value.length <= TOOL_DETAIL_DISPLAY_LIMIT)
+        return value;
+    const keep = TOOL_DETAIL_DISPLAY_LIMIT - 1;
+    const head = value.slice(0, keep);
+    const boundary = Math.max(head.lastIndexOf(' '), head.lastIndexOf('/'), head.lastIndexOf('\\'));
+    // 边界太靠前（说明是个超长无分隔符 token）就硬切，否则丢的信息比省的多
+    const cut = boundary >= keep * 0.6 ? boundary : keep;
+    return `${value.slice(0, cut).trimEnd()}…`;
 }
 function resolveToolDescriptor(toolName) {
     const normalizedName = (0, reasoning_utils_1.normalizeToolName)(toolName);
@@ -227,9 +279,11 @@ function pickSummaryDetail(signals, preference) {
 function buildResultBlock(source, descriptor) {
     if (source.result == null)
         return undefined;
-    if (descriptor && ['Read', 'Edit', 'Fetch web page', 'Browser'].includes(descriptor.title)) {
+    // 声明式判定：descriptor.noResult 取代早先硬编码的 title 列表
+    // （`['Read','Edit','Fetch web page','Browser'].includes(...)`），
+    // 与 hermes-fry-cards 的 no_result 语义对齐，新增工具不必再改这里。
+    if (descriptor?.noResult)
         return undefined;
-    }
     return buildDisplayBlock(sanitizeDisplayBlockValue(source.result, descriptor));
 }
 function buildErrorBlock(error, descriptor) {
@@ -300,12 +354,24 @@ function sanitizePathLike(value, options) {
     return segments.at(-1) ?? cleaned;
 }
 function sanitizeCommandLike(value, options) {
-    const cleaned = stripQuotes(value)
+    let cleaned = stripQuotes(value)
         .replace(/^(?:command|script|description)\s+/i, '')
         .replace(/^.*?\s+->\s+/i, '')
         .trim();
     if (!cleaned)
         return 'command';
+    // 过滤常见的前置冗余赋值（如 PowerShell $UA="..."; 或 bash export FOO=...;），优先露核心指令
+    cleaned = cleaned.replace(/^(?:\$[A-Za-z0-9_]+\s*=\s*(?:"[^"]*"|'[^']*'|[^;]+);\s*)+/i, '');
+    cleaned = cleaned.replace(/^(?:export\s+[A-Za-z0-9_]+\s*=\s*(?:"[^"]*"|'[^']*'|[^;]+);\s*)+/i, '');
+    // 针对 curl 命令清洗掉冗长的 header/UserAgent 旗标参数，优先呈现目标 URL
+    if (/^curl(?:\.exe)?\s+/i.test(cleaned)) {
+        cleaned = cleaned
+            .replace(/-[A-Za-z]*(?:A|H)\s+(?:"[^"]*"|'[^']*'|\S+)/g, '')
+            .replace(/--(?:compressed|silent|show-error|insecure|location)\b/g, '')
+            .replace(/\s+-[a-zA-Z]+\b/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
     const redacted = (0, reasoning_utils_1.redactInlineSecrets)(cleaned);
     return options.showFullPaths ? redacted : redactCommandPaths(redacted);
 }

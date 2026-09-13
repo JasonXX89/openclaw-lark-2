@@ -7,6 +7,13 @@ import {
     estimateSegmentElements,
     estimateToolElements,
 } from '../../src/card/segments.js';
+import {
+    startToolUseTraceRun,
+    recordToolUseStart,
+    getToolUseTraceSteps,
+    _resetForTesting,
+} from '../../src/card/tool-use-trace-store.js';
+import { normalizeToolUseDisplay } from '../../src/card/tool-use-display.js';
 
 describe('SegmentState 事件顺序', () => {
     it('reasoning → answer → tool → answer：同类 answer 合并为单段', () => {
@@ -144,5 +151,31 @@ describe('元素预算估算', () => {
 
     it('阈值常量合理（180 上限 + 2 footer 预留 < 200 飞书硬限）', () => {
         expect(ELEMENT_THRESHOLD + FOOTER_RESERVE).toBeLessThanOrEqual(200);
+    });
+});
+
+describe('工具调用去重保障', () => {
+    it('相同 toolCallId 的重复触发不重复增加步骤', () => {
+        _resetForTesting();
+        const sessionKey = 'test:session:dedup';
+        startToolUseTraceRun(sessionKey);
+        // 第一次触发
+        recordToolUseStart({
+            sessionKey,
+            toolName: 'exec',
+            toolParams: { command: 'curl.exe http://weather' },
+            toolCallId: 'call_123',
+        });
+        // 第二次重复触发相同的 toolCallId
+        recordToolUseStart({
+            sessionKey,
+            toolName: 'exec',
+            toolParams: { command: 'curl.exe http://weather' },
+            toolCallId: 'call_123',
+        });
+        const traceSteps = getToolUseTraceSteps(sessionKey);
+        expect(traceSteps).toHaveLength(1);
+        const display = normalizeToolUseDisplay({ traceSteps });
+        expect(display.stepCount).toBe(1);
     });
 });

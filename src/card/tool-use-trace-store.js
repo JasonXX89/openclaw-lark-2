@@ -15,6 +15,7 @@ exports.clearToolUseTraceRun = clearToolUseTraceRun;
 exports.hasToolUseTraceRun = hasToolUseTraceRun;
 exports.recordToolUseStart = recordToolUseStart;
 exports.recordToolUseEnd = recordToolUseEnd;
+exports.settleRunningToolSteps = settleRunningToolSteps;
 exports.getToolUseTraceSteps = getToolUseTraceSteps;
 exports.sanitizeTraceValue = sanitizeTraceValue;
 exports._resetForTesting = _resetForTesting;
@@ -64,6 +65,22 @@ function recordToolUseStart(params) {
             return;
         }
     }
+    const sanitizedParams = sanitizeTraceValue(toolParams, 0, { source: 'params' });
+    // 防重判断：如果已存在相同 toolCallId，更新参数即可，绝不重复 push
+    if (toolCallId) {
+        const existing = state.steps.find((s) => s.toolCallId === toolCallId);
+        if (existing) {
+            if (!existing.params && sanitizedParams) {
+                existing.params = sanitizedParams;
+            }
+            return;
+        }
+    }
+    // 若无 toolCallId，检查是否存在同名同参且处于 running 的步骤，避免重复创建
+    const pendingIndex = findPendingStepIndex(state.steps, toolName, sanitizedParams, toolCallId);
+    if (pendingIndex >= 0) {
+        return;
+    }
     const now = Date.now();
     if (state.steps.length >= MAX_STEPS_PER_SESSION) {
         state.steps.splice(0, state.steps.length - MAX_STEPS_PER_SESSION + 1);
@@ -74,11 +91,29 @@ function recordToolUseStart(params) {
         toolName,
         toolCallId: toolCallId || undefined,
         runId: runId || undefined,
-        params: sanitizeTraceValue(toolParams, 0, { source: 'params' }),
+        params: sanitizedParams,
         status: 'running',
         startedAt: now,
     });
     state.nextSeq += 1;
+    state.updatedAt = now;
+}
+/**
+ * 将当前会话中所有仍处于 running 状态的步骤标记为完成（success）。
+ * 用于模型返回后续文本/思考或流程收束时，自动终结前序工具步骤。
+ */
+function settleRunningToolSteps(sessionKey) {
+    if (!sessionKey) return;
+    const state = sessionTraces.get(sessionKey);
+    if (!state) return;
+    const now = Date.now();
+    for (const step of state.steps) {
+        if (step.status === 'running') {
+            step.status = 'success';
+            step.finishedAt = now;
+            step.durationMs = Math.max(0, now - step.startedAt);
+        }
+    }
     state.updatedAt = now;
 }
 function recordToolUseEnd(params) {

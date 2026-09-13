@@ -363,6 +363,7 @@ class StreamingCardController {
         if (!this.cardKit.cardMessageId)
             return;
         this.captureToolUseElapsed();
+        (0, tool_use_trace_store_1.settleRunningToolSteps)(this.deps.sessionKey);
         const split = (0, builder_1.splitReasoningText)(text);
         const showReasoning = this.shouldDisplayReasoning;
         if (split.reasoningText && !split.answerText) {
@@ -433,6 +434,7 @@ class StreamingCardController {
         // footer.showReasoning=false：思考不显示，丢弃 reasoning 流（不喂段、不积累）
         if (!this.shouldDisplayReasoning)
             return;
+        (0, tool_use_trace_store_1.settleRunningToolSteps)(this.deps.sessionKey);
         const rawText = payload.text ?? '';
         if (!rawText)
             return;
@@ -462,6 +464,7 @@ class StreamingCardController {
         const phase = payload.phase ?? 'start';
         // 把工具生命周期写入 trace store，卡片才能渲染出"正在调用什么工具"的步骤。
         if (phase === 'start') {
+            (0, tool_use_trace_store_1.settleRunningToolSteps)(this.deps.sessionKey);
             (0, tool_use_trace_store_1.recordToolUseStart)({
                 sessionKey: this.deps.sessionKey,
                 toolName: payload.name,
@@ -565,6 +568,7 @@ class StreamingCardController {
         if (!text)
             return;
         this.captureToolUseElapsed();
+        (0, tool_use_trace_store_1.settleRunningToolSteps)(this.deps.sessionKey);
         if (!this.reasoning.reasoningStartTime) {
             this.reasoning.reasoningStartTime = Date.now();
         }
@@ -1241,6 +1245,7 @@ class StreamingCardController {
      * tool step count used (for the terminal complete-card rendering).
      */
     finalizeSegmentState() {
+        (0, tool_use_trace_store_1.settleRunningToolSteps)(this.deps.sessionKey);
         const display = this.computeToolUseDisplay();
         const totalToolSteps = Array.isArray(display?.steps) ? display.steps.length : 0;
         this.segmentState.finalizeSegments(totalToolSteps);

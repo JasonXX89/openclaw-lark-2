@@ -235,31 +235,40 @@ function buildToolUpdateAction(elementId, steps, elapsedMs) {
 // Tool step element builders (internal, extracted from builder.js pattern)
 // ---------------------------------------------------------------------------
 
-function buildToolStepElements(step) {
+function buildToolStepElements(step, options) {
     const elements = [buildToolStepTitleElement(step)];
     const detailEl = buildToolStepDetailElement(step);
     if (detailEl) elements.push(detailEl);
-    const outputEl = buildToolStepOutputElement(step);
+    const outputEl = buildToolStepOutputElement(step, options);
     if (outputEl) elements.push(outputEl);
     return elements;
 }
 
 function buildToolStepTitleElement(step) {
-    const iconToken = step.status === 'completed'
+    const isCompleted = step.status === 'completed' || step.status === 'success';
+    const isFailed = step.status === 'failed' || step.status === 'error';
+    const defaultIcon = isCompleted
         ? 'circle-ok-2_outlined'
-        : step.status === 'failed'
+        : isFailed
             ? 'close-circle-2_outlined'
             : 'time_outlined';
-    const statusColor = step.status === 'completed'
-        ? 'green'
-        : step.status === 'failed'
-            ? 'red'
-            : 'grey';
+    const toolTitle = `**${step.title ?? step.name ?? 'Tool'}**`;
+    const statusPart = isCompleted
+        ? ` · <font color='green'>${step.statusText ?? 'Succeeded'}</font>`
+        : isFailed
+            ? ` · <font color='red'>${step.statusText ?? 'Failed'}</font>`
+            : ` · <font color='turquoise'>${step.statusText ?? 'Running'}</font>`;
     return {
         tag: 'div',
+        icon: {
+            tag: 'standard_icon',
+            token: step.iconToken ?? defaultIcon,
+            color: 'grey',
+        },
         text: {
             tag: 'lark_md',
-            content: `**${step.name ?? 'Tool'}** · <font color='${statusColor}'>${step.statusText ?? step.status ?? 'pending'}</font>`,
+            content: `${toolTitle}${statusPart}`,
+            text_size: 'notation',
         },
     };
 }
@@ -278,14 +287,22 @@ function buildToolStepDetailElement(step) {
     };
 }
 
-function buildToolStepOutputElement(step) {
-    const output = step.output || step.error;
+function buildToolStepOutputElement(step, options) {
+    // 对齐薯条卡片（hermes-fry-cards）：
+    // 成功时默认不平铺庞大的 output/result，避免上万字符的 API/网页报文撑爆卡片；
+    // 仅在执行失败（error）或显式开启 showResultDetails 时才展示。
+    const hasError = Boolean(step.error);
+    const showOutput = hasError || options?.showResultDetails === true;
+    if (!showOutput) return null;
+
+    const output = step.error || step.output;
     if (!output) return null;
     return {
         tag: 'div',
         text: {
             tag: 'lark_md',
-            content: step.error ? `<font color='red'>${output}</font>` : output,
+            content: hasError ? `<font color='red'>${output}</font>` : output,
+            text_size: 'notation',
         },
         margin: '0px 0px 0px 22px',
     };

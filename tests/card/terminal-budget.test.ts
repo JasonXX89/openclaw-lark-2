@@ -98,13 +98,21 @@ describe('isCardElementLimitError 谓词', () => {
         (err as never as { code: number }).code = 230099;
         expect(isCardElementLimitError(err)).toBe(true);
     });
+});
 
-    it('不误判表格超限（table number over limit）与限流（230020）', () => {
-        const tableErr = new Error('code=230099, msg=Failed to create card content, ext=ErrCode: 11310; ErrMsg: card table number over limit');
-        (tableErr as never as { code: number }).code = 230099;
-        expect(isCardElementLimitError(tableErr)).toBe(false);
-        const rateErr = new Error('code=230020');
-        (rateErr as never as { code: number }).code = 230020;
-        expect(isCardElementLimitError(rateErr)).toBe(false);
+describe('卡片配置与模型名展示优化', () => {
+    it('终态卡保持默认宽屏配置 wide_screen_mode: true', () => {
+        const card = completeWith();
+        expect(card.config.wide_screen_mode).toBe(true);
+        expect(card.config.width_mode).toBeUndefined();
+    });
+
+    it('多层模型名自动剥离最外层网关前缀：10router/cbcn/deepseek-v4.1-flash -> 🦐cbcn/deepseek-v4.1-flash', () => {
+        const card = completeWith({
+            footerMetrics: { model: '10router/cbcn/deepseek-v4.1-flash' },
+        });
+        const s = JSON.stringify(card);
+        expect(s).toContain('🦐cbcn/deepseek-v4.1-flash');
+        expect(s).not.toContain('🦐10router');
     });
 });

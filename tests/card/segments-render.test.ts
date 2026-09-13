@@ -188,7 +188,7 @@ describe('buildToolUpdateAction', () => {
 // ---------------------------------------------------------------------------
 
 describe('_buildToolStepElements', () => {
-    it('builds title + detail + output for a complete step', () => {
+    it('builds title + detail (cleansed, no output flooding) for a successful step by default', () => {
         const step = {
             name: 'web_search',
             status: 'completed',
@@ -196,7 +196,22 @@ describe('_buildToolStepElements', () => {
             detail: 'query: test',
             output: '3 results',
         };
+        // 默认精简展示：成功时不平铺 output
         const els = _buildToolStepElements(step);
+        expect(els).toHaveLength(2);
+        expect(els[0].tag).toBe('div'); // title
+        expect(els[1].tag).toBe('div'); // detail
+    });
+
+    it('builds title + detail + output when showResultDetails is enabled', () => {
+        const step = {
+            name: 'web_search',
+            status: 'completed',
+            statusText: 'Done',
+            detail: 'query: test',
+            output: '3 results',
+        };
+        const els = _buildToolStepElements(step, { showResultDetails: true });
         expect(els).toHaveLength(3);
         expect(els[0].tag).toBe('div'); // title
         expect(els[1].tag).toBe('div'); // detail
