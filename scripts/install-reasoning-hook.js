@@ -3,7 +3,7 @@
  * openclaw-lark reasoning hook 历史补丁（已废弃 / Deprecated）— 仅供卸载与还原
  *
  * ⚠️ 重要声明（源码实测查证）：
- * OpenClaw 2.0 全系列版本（≥ 2026.7.1，包含 2026.8.x / 2026.9.x）均原生支持官方授权配置！
+ * OpenClaw 2.0 全系列版本（≥ 2026.8.1，包含 2026.9.x）均原生支持官方授权配置！
  * 只需在 openclaw.json 的 commands 段配置:
  *   "allowFrom": { "feishu": ["*"] }
  * 即可让思考流原生生效，完全无需安装任何 Hook 补丁！
