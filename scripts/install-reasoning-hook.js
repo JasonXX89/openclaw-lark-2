@@ -1,12 +1,13 @@
 "use strict";
 /**
- * openclaw-lark reasoning hook 独立补丁 — 安装/卸载/状态
+ * openclaw-lark reasoning hook 历史补丁（已废弃 / Deprecated）— 仅供卸载与还原
  *
- * ⚠️ 提示（2026-09-11 验证）：
- * OpenClaw 2026.9.3+ 已提供官方原生授权支持！
+ * ⚠️ 重要声明（源码实测查证）：
+ * OpenClaw 2.0 全系列版本（≥ 2026.7.1，包含 2026.8.x / 2026.9.x）均原生支持官方授权配置！
  * 只需在 openclaw.json 的 commands 段配置:
- *   "allowFrom": { "feishu": ["ou_..."] }
- * 即可让思考流原生生效，完全无需安装本补丁！本脚本仅供旧版 OpenClaw 备用。
+ *   "allowFrom": { "feishu": ["*"] }
+ * 即可让思考流原生生效，完全无需安装任何 Hook 补丁！
+ * 本脚本仅供历史安装过补丁的用户执行卸载（uninstall）还原纯净环境。
  *
  * 解决的问题：OpenClaw 默认普通消息（不带 `/reasoning stream`）不把思考流推给
  * channel 插件 → 飞书卡片没有 💭 思考面板。本补丁用 ESM loader hook
