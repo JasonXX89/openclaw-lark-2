@@ -174,7 +174,7 @@ describe('buildToolUpdateAction', () => {
         expect(action.params.element_id).toBe('tool_panel');
         // header shows 2 steps and preserves right arrow icon
         expect(action.params.partial_element.header.title.content).toContain('2 steps');
-        expect(action.params.partial_element.header.title.i18n_content.zh_cn).toContain('工具调用中');
+        expect(action.params.partial_element.header.title.i18n_content.zh_cn).toContain('工具执行中');
         expect(action.params.partial_element.header.icon.token).toBe('down-small-ccm_outlined');
         expect(action.params.partial_element.header.icon_position).toBe('right');
         expect(action.params.partial_element.header.icon_expanded_angle).toBe(-180);

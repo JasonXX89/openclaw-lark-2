@@ -48,7 +48,7 @@ function _reasoningPanelTitle(elapsedMs) {
 /** tool 面板标题 */
 function _toolPanelTitle(stepCount, elapsedMs) {
     const enParts = ['Tool use'];
-    const zhParts = ['工具调用中'];
+    const zhParts = ['工具执行中'];
     if (stepCount > 0) {
         enParts.push(`${stepCount} step${stepCount === 1 ? '' : 's'}`);
         zhParts.push(`${stepCount} 步`);
