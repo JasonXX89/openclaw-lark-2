@@ -437,7 +437,7 @@ function buildCompleteCard(params) {
             reorderedZh.push(...primaryZh);
             reorderedEn.push(...primaryEn);
             if (reorderedZh.length > 0) {
-                titleParts.push(reorderedZh.join(' '));
+                titleParts.push(reorderedZh.join('  '));
             }
         }
         if (fpTitle.detailZh.length > 0) {
@@ -445,14 +445,14 @@ function buildCompleteCard(params) {
             const detailFiltered = fpTitle.detailZh.filter((s) => !s.startsWith('📦'));
             const detailFilteredEn = fpTitle.detailEn.filter((s) => !s.startsWith('📦'));
             if (detailFiltered.length > 0) {
-                titleParts.push(detailFiltered.join(' '));
+                titleParts.push(detailFiltered.join('  '));
             }
         }
         // 耗时放到整行最右（📊 上下文段之后）
         if (elapsedZh) {
             titleParts.push(elapsedZh);
         }
-        const headerText = [headerParts.join(' '), ...titleParts].filter(Boolean).join(' ');
+        const headerText = [headerParts.join('  '), ...titleParts].filter(Boolean).join('  ');
         // 外层统一面板展开后：默认（无 timeline）保留薯条样式——💭 思考是嵌套
         // 子折叠面板，🔧 工具步骤直接平铺。有 workflowTimeline（controller 从
         // SegmentState 提取的保序过程）时，按真实发生顺序交错展示：
