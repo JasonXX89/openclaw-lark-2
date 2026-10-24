@@ -33,6 +33,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
+| **2026.10.4** | 2026-10-24 | 修复 footer 上下文窗口解析（支持 Provider 忽略大小写与跨别名匹配，解决 📊 上下文指标不显示问题）+ footer 标题行各指标间隔连接符恢复为双空格 + 工具流折叠标题优化为「🛠️ 工具执行中 · N 步」+ 适配 OpenClaw 2026.10.x 插件 SDK 导出路径变更 |
 | **2026.9.8** | 2026-09-12 | 流式卡片工具折叠标题优化为「🛠️ 工具调用中 · N 步」+ 修复多工具步骤更新时右侧折叠小箭头丢失 bug + 工具流精简（对齐薯条卡片，成功不平铺输出报文、命令行智能清洗）+ 工具调用生命周期防重（解决单次调用展示两次问题）+ 模型名精简与 footer 标题行单空格防折行 + 官方 commands.allowFrom 原生思考流与 extra_body 透传指引（全量通过 OpenClaw 2026.9.4 实测验证）|
 | **2026.9.7** | 2026-09-10 | 兼容 OpenClaw 2026.9.3（streaming 规范化对象形式）+ 终态卡元素预算防 300305 爆卡 + 思考终结面板右侧箭头保全修复 + 模型标识 🦐 |
 | **2026.9.6** | 2026-09-06 | 工作流时间线交错展开（折叠面板内 `💭 思考N` 与工具步骤按真实顺序交错）+ Segment 流式引擎重构（单段 answer、打字机增量防平方膨胀）+ 状态行置顶 + 审计安全加固 |
@@ -47,7 +48,7 @@
 
 ```bash
 # 方式 A：直接安装发布包（推荐）/ Recommended
-npm pack && openclaw plugins install openclaw-lark-2-2026.9.8.tgz
+npm pack && openclaw plugins install openclaw-lark-2-2026.10.4.tgz
 
 # 方式 B：从源码安装 / From source
 git clone https://github.com/JasonXX89/openclaw-lark-2.git
