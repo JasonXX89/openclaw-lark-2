@@ -152,22 +152,46 @@ class StreamingCardController {
     /** Resolve a model's context window from cfg.models.providers. */
     resolveContextWindow(provider, model) {
         try {
+            if (!model)
+                return undefined;
             const providers = this.deps.cfg?.models?.providers ?? {};
-            // 1) 精确匹配：同一 provider 下按 id 查
-            const pcfg = providers[provider];
-            if (pcfg && Array.isArray(pcfg.models)) {
-                const found = pcfg.models.find((m) => m && m.id === model);
-                if (typeof found?.contextWindow === 'number')
-                    return found.contextWindow;
+            // 1) 查找 provider（忽略大小写，如 '10rc' 匹配 '10RC'）
+            let pcfg = providers[provider];
+            if (!pcfg && provider) {
+                const pKey = Object.keys(providers).find((k) => k.toLowerCase() === provider.toLowerCase());
+                if (pKey)
+                    pcfg = providers[pKey];
             }
-            // 2) 跨 provider 回退：按裸模型名（去掉 "xxx/" 前缀）或后缀匹配任意 provider
-            //    场景：网关聚合供应商（如 10router 的 oc/mimo-v2.5-free）未配 contextWindow，
-            //    但直连供应商（如 opencode 的 mimo-v2.5-free）配了同一个底层模型。
             const bare = model.includes('/') ? model.split('/').pop() : model;
+            if (pcfg && Array.isArray(pcfg.models)) {
+                // 1.1 精确匹配 id
+                const exact = pcfg.models.find((m) => m && m.id === model);
+                if (typeof exact?.contextWindow === 'number')
+                    return exact.contextWindow;
+                // 1.2 裸名匹配
+                const bareHit = pcfg.models.find((m) => {
+                    if (!m || typeof m.contextWindow !== 'number')
+                        return false;
+                    const mBare = m.id?.includes('/') ? m.id.split('/').pop() : m.id;
+                    return m.id === bare || mBare === bare;
+                });
+                if (bareHit)
+                    return bareHit.contextWindow;
+            }
+            // 2) 跨 provider 回退：
+            //    场景：provider 别名不匹配（如 transcript 里记为 10router，而 cfg 配的是 10RC）
+            //    或者聚合模型未配 contextWindow，但其他 provider 配了相同模型。
             for (const p of Object.values(providers)) {
                 if (!p || !Array.isArray(p.models))
                     continue;
-                const hit = p.models.find((m) => m && typeof m.contextWindow === 'number' && (m.id === bare || model.endsWith(`/${m.id}`)));
+                const hit = p.models.find((m) => {
+                    if (!m || typeof m.contextWindow !== 'number')
+                        return false;
+                    if (m.id === model)
+                        return true;
+                    const mBare = m.id?.includes('/') ? m.id.split('/').pop() : m.id;
+                    return m.id === bare || mBare === bare || model.endsWith(`/${m.id}`) || m.id.endsWith(`/${model}`);
+                });
                 if (hit)
                     return hit.contextWindow;
             }
