@@ -1,8 +1,8 @@
 # openclaw-lark-2
  
-**OpenClaw 2.0（2026.8.1+）专属飞书 / Lark 渠道插件** · An OpenClaw 2.0 (2026.8.1+) Feishu/Lark channel plugin, adapted from `@larksuite/openclaw-lark`.
+**OpenClaw 2.0（适用版本：2026.8.1 ~ 2026.10.9+）专属飞书 / Lark 渠道插件** · An OpenClaw 2.0 (compatible with 2026.8.1 ~ 2026.10.9+) Feishu/Lark channel plugin, adapted from `@larksuite/openclaw-lark`.
  
-深度适配 OpenClaw 2.0+ SDK 与 2026.9.4 架构：原生 Segment 流式卡片引擎、思考流与工具折叠时间线、防爆卡预算控制、多账号与群聊流式完整支持。 / Fully adapted to OpenClaw 2.0+ SDK (verified on 2026.9.4) with native Segment-driven streaming cards, thinking & tool workflow timelines, and full multi-account support.
+深度适配 OpenClaw 2.0+ SDK 与 2026.10.x（实测兼容至最新 2026.10.9）架构：原生 Segment 流式卡片引擎、思考流与工具折叠时间线、防爆卡预算控制、多账号与群聊流式完整支持。 / Fully adapted to OpenClaw 2.0+ SDK (verified on OpenClaw 2026.8.1 ~ 2026.10.9) with native Segment-driven streaming cards, thinking & tool workflow timelines, and full multi-account support.
 
 ---
 
@@ -33,6 +33,7 @@
 
 | 版本 / Version | 日期 / Date | 说明 / Notes |
 |---|---|---|
+| **2026.10.9** | 2026-11-01 | 跟随 OpenClaw 宿主版本号升级至 v2026.10.9；完成 OpenClaw 2026.10.9 全量 SDK 导出与运行时兼容性验证（全量 162 项测试通过）；明确标注本插件适用版本范围（OpenClaw 2026.8.1 ~ 2026.10.9+）|
 | **2026.10.4** | 2026-10-24 | 修复 footer 上下文窗口解析（支持 Provider 忽略大小写与跨别名匹配，解决 📊 上下文指标不显示问题）+ footer 标题行各指标间隔连接符恢复为双空格 + 工具流折叠标题优化为「🛠️ 工具执行中 · N 步」+ 适配 OpenClaw 2026.10.x 插件 SDK 导出路径变更 |
 | **2026.9.8** | 2026-09-12 | 流式卡片工具折叠标题优化为「🛠️ 工具调用中 · N 步」+ 修复多工具步骤更新时右侧折叠小箭头丢失 bug + 工具流精简（对齐薯条卡片，成功不平铺输出报文、命令行智能清洗）+ 工具调用生命周期防重（解决单次调用展示两次问题）+ 模型名精简与 footer 标题行单空格防折行 + 官方 commands.allowFrom 原生思考流与 extra_body 透传指引（全量通过 OpenClaw 2026.9.4 实测验证）|
 | **2026.9.7** | 2026-09-10 | 兼容 OpenClaw 2026.9.3（streaming 规范化对象形式）+ 终态卡元素预算防 300305 爆卡 + 思考终结面板右侧箭头保全修复 + 模型标识 🦐 |
@@ -48,7 +49,7 @@
 
 ```bash
 # 方式 A：直接安装发布包（推荐）/ Recommended
-npm pack && openclaw plugins install openclaw-lark-2-2026.10.4.tgz
+npm pack && openclaw plugins install openclaw-lark-2-2026.10.9.tgz
 
 # 方式 B：从源码安装 / From source
 git clone https://github.com/JasonXX89/openclaw-lark-2.git
